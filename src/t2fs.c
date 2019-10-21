@@ -2,12 +2,16 @@
 /**
 */
 #include "t2fs.h"
+#include "t2disk.h"
+#include "apidisk.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 /* **************************************************************** */
+typedef unsigned char BYTE;
 #define SUCCESS 0
 #define FAILED -1
+#define SECTOR_SIZE 256
 #define error() printf("Error thrown at %s:%s:%d\n",FILE,_FUNCTION__,LINE);
 
 // Debugging
@@ -15,6 +19,21 @@ int failed(char* msg) {printf("%s\n", msg);return FAILED;}
 void print(char* msg) {printf("%s\n", msg);}
 void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 /* **************************************************************** */
+
+typedef struct Partition{
+	unsigned int initial_sector;
+	unsigned int final_sector;
+	unsigned char partition_name[24];
+} PARTITION;
+
+typedef struct Mbr{
+	unsigned int version;
+	unsigned int sector_size;
+	unsigned int initial_byte;
+	unsigned int num_partitions;
+	PARTITION* disk_partitions;
+} MBR;
+
 
 // GLOBAL VARIABLES
 FILE2 open_files[10];
@@ -31,6 +50,22 @@ int fopen_count = 0;
 
 /* **************************************************************** */
 
+int to_int(BYTE* bytes, int num_bytes) {
+	// Bytes stored in little endian format
+	// Least significant byte comes first on the lowest index, highest comes last
+	unsigned int value = 0;
+	for (int i = 0; i < num_bytes ; ++i){
+		value |= (unsigned int)(bytes[i] << 8*i) ;
+	}
+
+	return value;
+}
+
+BYTE* to_BYTE(unsigned int value) {
+	// n to afim
+	return (BYTE*)"A";
+}
+
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
 -----------------------------------------------------------------------------*/
@@ -44,14 +79,71 @@ int identify2 (char *name, int size) {
 	return SUCCESS;
 }
 
+int init_superblock(unsigned char* mbr) {
+	return SUCCESS;
+}
+
+
+int read_MBR(BYTE* master_sector, MBR* mbr) {
+	// reads the logical master boot record sector into a special structure of type MBR
+	mbr->version = to_int(&(master_sector[0]), 2);
+	mbr->sector_size = to_int(&(master_sector[2]), 2);
+	mbr->initial_byte = to_int(&(master_sector[4]), 2);
+	mbr->num_partitions = to_int(&(master_sector[6]),2);
+	mbr->disk_partitions = (PARTITION*)malloc(sizeof(PARTITION)*mbr->num_partitions);
+	for(int i = 0; i < mbr->num_partitions; ++i){
+		int j = 8 + i*32; //32 bytes per partition in the boot record
+		mbr->disk_partitions[i].initial_sector = to_int(&(master_sector[j]),4);
+		mbr->disk_partitions[i].final_sector = to_int(&(master_sector[j+4]),4);
+		// String possivelmente tem que inverter a ordem
+		strncpy((char*)mbr->disk_partitions[i].partition_name, (char*)&(master_sector[j+8]), 24);
+	}
+return SUCCESS;
+}
+
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
 		arquivos T2FS definido usando blocos de dados de tamanho
 		corresponde a um múltiplo de setores dados por sectors_per_block.
 -----------------------------------------------------------------------------*/
 int format2(int partition, int sectors_per_block) {
-	return -1;
+
+	BYTE* master_sector = (BYTE*)malloc(SECTOR_SIZE);
+	if(read_sector(0, master_sector) != SUCCESS) return failed("Failed to read MBR");
+	MBR* disk_mbr = (MBR*)malloc(sizeof(MBR));
+	// quero saber se a partition eh valida
+	// tem que ler 2 bytes no MBR pra saber qtd de partitions
+	if( read_MBR(master_sector, disk_mbr) != SUCCESS) return failed("Fu");
+
+	if (partition >= disk_mbr->num_partitions) return failed("Invalid partition bye");
+
+	int first = disk_mbr->disk_partitions[partition].initial_sector;
+	int last  = disk_mbr->disk_partitions[partition].final_sector;
+	int num_sectors = last - first + 1;
+
+	int num_blocks_formatted = num_sectors / sectors_per_block;
+
+	// alocar um superbloco
+	struct t2fs_superbloco* sb = (struct t2fs_superbloco*)malloc(sizeof(struct t2fs_superbloco));
+	// inicializar
+	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"...
+	sb->version = 0x7E32; //ou 0x327E
+	sb->superblockSize = 1; // ou 0x01 0x00
+	sb->blockSize = sectors_per_block;
+	sb->diskSize = num_blocks_formatted;
+	// bitmap has "num_blocks_formatted" bits
+	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr->sector_size * sectors_per_block);
+
+	// 10% of the partition blocks are reserved to inodes (ROUND UP)
+	sb->inodeAreaSize = (int)( 0.10*sb->diskSize + 0.5); // qty in blocks
+	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr->sector_size * sectors_per_block);
+
+return SUCCESS;
 }
+
+
+
+
 
 /*-----------------------------------------------------------------------------
 Função:	Monta a partição indicada por "partition" no diretório raiz
