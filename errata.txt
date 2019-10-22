@@ -1,0 +1,7 @@
+21/10/2019
+	- Definidas as funções para definição de link simbólidos e links estritos (sln2 e hln2)
+	- Retiradas as funções "truncate2" e "seek"
+	- Atualizados os arquivos
+		- Especificacao.pdf
+		- t2fs.h
+		- t2fs.c

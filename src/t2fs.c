@@ -329,47 +329,36 @@ int write2 (FILE2 handle, char *buffer, int size) {
 }
 
 /*-----------------------------------------------------------------------------
-Função:	Função usada para truncar um arquivo. Remove do arquivo
-		todos os bytes a partir da posição atual do contador de posição
-		(current pointer), inclusive, até o seu final.
------------------------------------------------------------------------------*/
-int truncate2 (FILE2 handle) {
-	return -1;
-}
-
-/*-----------------------------------------------------------------------------
-Função:	Altera o contador de posição (current pointer) do arquivo.
------------------------------------------------------------------------------*/
-int seek2 (FILE2 handle, DWORD offset) {
-	return -1;
-}
-
-/*-----------------------------------------------------------------------------
 Função:	Função que abre um diretório existente no disco.
 -----------------------------------------------------------------------------*/
-int opendir2 (void) {
+DIR2 opendir2 (char *pathname) {
 	return -1;
 }
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para ler as entradas de um diretório.
 -----------------------------------------------------------------------------*/
-int readdir2 (DIRENT2 *dentry) {
+int readdir2 (DIR2 handle, DIRENT2 *dentry) {
 	return -1;
 }
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para fechar um diretório.
 -----------------------------------------------------------------------------*/
-int closedir2 (void) {
+int closedir2 (DIR2 handle) {
 	return -1;
 }
 
 /*-----------------------------------------------------------------------------
-Função:	Função usada para criar um caminho alternativo (softlink) com
-		o nome dado por linkname (relativo ou absoluto) para um
-		arquivo ou diretório fornecido por filename.
+Função:	Função usada para criar um caminho alternativo (softlink)
 -----------------------------------------------------------------------------*/
-int ln2 (char *linkname, char *filename) {
+int sln2 (char *linkname, char *filename) {
+	return -1;
+}
+
+/*-----------------------------------------------------------------------------
+Função:	Função usada para criar um caminho alternativo (hardlink)
+-----------------------------------------------------------------------------*/
+int hln2(char *linkname, char *filename) {
 	return -1;
 }
