@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 /* **************************************************************** */
 typedef unsigned char BYTE;
 #define SUCCESS 0
@@ -50,20 +51,25 @@ int fopen_count = 0;
 
 /* **************************************************************** */
 
-int to_int(BYTE* bytes, int num_bytes) {
+DWORD to_int(BYTE* bytes, int num_bytes) {
 	// Bytes stored in little endian format
 	// Least significant byte comes first on the lowest index, highest comes last
-	unsigned int value = 0;
+	DWORD value = 0;
 	for (int i = 0; i < num_bytes ; ++i){
-		value |= (unsigned int)(bytes[i] << 8*i) ;
+		value |= (DWORD)(bytes[i] << 8*i) ;
 	}
 
 	return value;
 }
 
-BYTE* to_BYTE(unsigned int value) {
-	// n to afim
-	return (BYTE*)"A";
+BYTE* to_BYTE(DWORD value, int num_bytes) {
+
+	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
+	strncpy((char*)bytes, (char*)"\0", 4 );
+	for (int i = 0; i < num_bytes; ++i) {
+		bytes[i] = (value >> (8*i))&0xFF;
+	}
+	return bytes;
 }
 
 /*-----------------------------------------------------------------------------
@@ -101,6 +107,31 @@ int read_MBR(BYTE* master_sector, MBR* mbr) {
 return SUCCESS;
 }
 
+void calculate_checksum(struct t2fs_superbloco* sb) {
+	// A superblock's checksum is the 1-complement of a sum of 5 integers.
+	// Each integer is 4 bytes unsigned little-endian.
+	BYTE temp4[4];
+
+	DWORD checksum = to_int((BYTE*)sb->id, 4);
+	// Version + superblockSize (2 bytes each, both little endian)
+	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->version, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->superblockSize,2), 2);
+	checksum += to_int(temp4, 4);
+	// freeBlocksBitmapSize + freeInodeBitmapSize (2B each)
+	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->freeBlocksBitmapSize, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->freeInodeBitmapSize,2), 2);
+	checksum += to_int(temp4, 4);
+	// inodeAreaSize + blockSize (2B each)
+	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->inodeAreaSize, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->blockSize,2), 2);
+	checksum += to_int(temp4, 4);
+	// diskSize (a DWORD of 4 Bytes)
+	checksum += sb->diskSize;
+
+	// flip it and reverse it
+	sb->Checksum = ~checksum;
+}
+
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
 		arquivos T2FS definido usando blocos de dados de tamanho
@@ -135,8 +166,10 @@ int format2(int partition, int sectors_per_block) {
 	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr->sector_size * sectors_per_block);
 
 	// 10% of the partition blocks are reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (int)( 0.10*sb->diskSize + 0.5); // qty in blocks
+	sb->inodeAreaSize = (int)(ceil(0.10*sb->diskSize)); // qty in blocks
 	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr->sector_size * sectors_per_block);
+
+	calculate_checksum(sb);
 
 return SUCCESS;
 }
