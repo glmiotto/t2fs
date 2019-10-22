@@ -4,6 +4,7 @@
 #include "t2fs.h"
 #include "t2disk.h"
 #include "apidisk.h"
+#include "bitmap2.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,6 +14,13 @@ typedef unsigned char BYTE;
 #define SUCCESS 0
 #define FAILED -1
 #define SECTOR_SIZE 256
+#define	BITMAP_INODE	0
+#define	BITMAP_DADOS	1
+#define	TYPEVAL_INVALIDO	0x00
+#define	TYPEVAL_REGULAR		0x01
+#define	TYPEVAL_LINK		0x02
+#define MAX_FILE_NAME_SIZE 255
+
 #define error() printf("Error thrown at %s:%s:%d\n",FILE,_FUNCTION__,LINE);
 
 // Debugging
@@ -148,9 +156,9 @@ int format2(int partition, int sectors_per_block) {
 
 	if (partition >= disk_mbr->num_partitions) return failed("Invalid partition bye");
 
-	int first = disk_mbr->disk_partitions[partition].initial_sector;
-	int last  = disk_mbr->disk_partitions[partition].final_sector;
-	int num_sectors = last - first + 1;
+	int first_sector = disk_mbr->disk_partitions[partition].initial_sector;
+	int last_sector  = disk_mbr->disk_partitions[partition].final_sector;
+	int num_sectors = last_sector - first_sector + 1;
 
 	int num_blocks_formatted = num_sectors / sectors_per_block;
 
@@ -170,6 +178,32 @@ int format2(int partition, int sectors_per_block) {
 	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr->sector_size * sectors_per_block);
 
 	calculate_checksum(sb);
+
+	// Superblock filled, needs to be saved into disk
+	// at sector 0 of its partition (first sector)
+	// "all superblock values are little-endian"
+	// so theres probably something wrong in declaration
+
+	write_sector(first_sector, (BYTE*)sb);
+	// Realmente nao sei se isso vai dar certo
+	// Se nao der: precisa uma funcao dedicada para passar toda
+	// a estrutura superbloco para disco, campo a campo,
+	// em formato unsigned char / BYTE little endian. fun
+
+	// Allocates both Bitmaps (block status and inode status)
+	// Input: disk sector where the partition's superblock is
+	// (aka, the first sector in a formatted partition)
+	// Output: success/error code
+	if( openBitmap2(first_sector) != SUCCESS){
+		// provavelmente desalocar alguma coisa
+		return failed("Carissimi nao gostou do meu superbloco");
+	}
+
+	// Allocate all i-nodes to fill inodeAreaSize ???
+
+	// Afterwards: the rest is data blocks.
+	// first block onwards after inodes is reserved to
+	// file data, directory files, and index blocks for big files.
 
 return SUCCESS;
 }
