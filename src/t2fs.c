@@ -46,7 +46,8 @@ typedef struct Mbr{
 // Auxiliary functions
 int init();
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
-int read_superblock_from_partition(int partition, int sectors_per_block);
+int initialize_superblock(int partition, int sectors_per_block);
+int write_superblock_to_partition(int partition);
 void calculate_checksum(struct t2fs_superbloco* sb) ;
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* bytes, int num_bytes);
@@ -128,7 +129,7 @@ int identify2 (char *name, int size) {
 	return SUCCESS;
 }
 
-int read_superblock_from_partition(int partition, int sectors_per_block) {
+int initialize_superblock(int partition, int sectors_per_block) {
 
 	if (partition >= disk_mbr.num_partitions) return failed("Invalid partition bye");
 
@@ -154,13 +155,46 @@ int read_superblock_from_partition(int partition, int sectors_per_block) {
 	// at sector 0 of its partition (first sector)
 	// "all superblock values are little-endian"
 	// so theres probably something wrong in declaration
-	write_sector(first_sector, (BYTE*)sb);
+	//write_sector(first_sector, (BYTE*)sb);
+
 	// Realmente nao sei se isso vai dar certo
 	// Se nao der: precisa uma funcao dedicada para passar toda
 	// a estrutura superbloco para disco, campo a campo,
 	// em formato unsigned char / BYTE little endian. fun
+
+	// (edit) nao foi tao dificil actually. implemented function that
+	// converts everything to little endian BYTE
+	write_superblock_to_partition(partition);
+
 	return SUCCESS;
 }
+
+int write_superblock_to_partition(int partition) {
+	BYTE* output = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+	// Gets pointer to application-space superblock
+	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+
+	output[0] = sb->id[3];
+	output[1] = sb->id[2];
+	output[2] = sb->id[1];
+	output[3] = sb->id[0];
+	strncpy((char*)&(output[4]), (char*)to_BYTE(sb->version, 2),2);
+	strncpy((char*)&(output[6]), (char*)to_BYTE(sb->superblockSize, 2),2);
+	strncpy((char*)&(output[8]), (char*)to_BYTE(sb->freeBlocksBitmapSize, 2),2);
+	strncpy((char*)&(output[10]), (char*)to_BYTE(sb->freeInodeBitmapSize, 2),2);
+	strncpy((char*)&(output[12]), (char*)to_BYTE(sb->inodeAreaSize, 2),2);
+	strncpy((char*)&(output[14]), (char*)to_BYTE(sb->blockSize, 2),2);
+	strncpy((char*)&(output[16]), (char*)to_BYTE(sb->diskSize, 4),4);
+	strncpy((char*)&(output[20]), (char*)to_BYTE(sb->Checksum, 4),4);
+
+	if (write_sector(
+		disk_mbr.disk_partitions[partition].initial_sector,
+		output) != SUCCESS) {
+		return failed("Failed to write superblock to partition sector");
+	}
+	else return SUCCESS;
+}
+
 
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
 	// reads the logical master boot record sector into a special structure of type MBR
@@ -210,7 +244,7 @@ int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
 
-	if( read_superblock_from_partition(partition, sectors_per_block) != SUCCESS){
+	if( initialize_superblock(partition, sectors_per_block) != SUCCESS){
 		return failed("Failed to read superblock.");
 	}
 
