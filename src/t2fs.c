@@ -14,21 +14,21 @@ typedef unsigned char BYTE;
 #define SUCCESS 0
 #define FAILED -1
 #define SECTOR_SIZE 256
+
 #define	BITMAP_INODE	0
 #define	BITMAP_DADOS	1
+
 #define	TYPEVAL_INVALIDO	0x00
 #define	TYPEVAL_REGULAR		0x01
 #define	TYPEVAL_LINK		0x02
+
 #define MAX_FILE_NAME_SIZE 255
+#define MAX_FILES_OPEN 10
 
+#define SECTOR_DISK_MBR 0
+#define SECTOR_PARTITION_SUPERBLOCK 0
 #define error() printf("Error thrown at %s:%s:%d\n",FILE,_FUNCTION__,LINE);
-
-// Debugging
-int failed(char* msg) {printf("%s\n", msg);return FAILED;}
-void print(char* msg) {printf("%s\n", msg);}
-void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 /* **************************************************************** */
-
 typedef struct Partition{
 	unsigned int initial_sector;
 	unsigned int final_sector;
@@ -42,20 +42,33 @@ typedef struct Mbr{
 	unsigned int num_partitions;
 	PARTITION* disk_partitions;
 } MBR;
-
-
+/* **************************************************************** */
+// Auxiliary functions
+int init();
+int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
+int read_superblock_from_partition(int partition, int sectors_per_block);
+void calculate_checksum(struct t2fs_superbloco* sb) ;
+// Conversion from/to little-endian unsigned chars
+DWORD to_int(BYTE* bytes, int num_bytes);
+BYTE* to_BYTE(DWORD value, int num_bytes);
+// Debugging
+int failed(char* msg) {printf("%s\n", msg);return FAILED;}
+void print(char* msg) {printf("%s\n", msg);}
+void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
+/* **************************************************************** */
 // GLOBAL VARIABLES
-FILE2 open_files[10];
+MBR disk_mbr;
+struct t2fs_superbloco* partition_superblocks;
+FILE2 open_files[MAX_FILES_OPEN];
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
-int fopen_count = 0;
+int fopen_count;
+boolean t2fs_initialized = false;
 
 // OBS o .c original incluia nas assinaturas uma entrada DIR2
 // que assumo equivaler a um typedef int para uma handle de dir
 // mas o .h nao tem isso e nosso trabalho só usa diretorio raiz,
 // entao tirei esse argumento aqui do .c em opendir readdir e closedir
-
-
 
 /* **************************************************************** */
 
@@ -73,12 +86,34 @@ DWORD to_int(BYTE* bytes, int num_bytes) {
 BYTE* to_BYTE(DWORD value, int num_bytes) {
 
 	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
-	strncpy((char*)bytes, (char*)"\0", 4 );
+	strncpy((char*)bytes, (char*)"\0", num_bytes );
 	for (int i = 0; i < num_bytes; ++i) {
 		bytes[i] = (value >> (8*i))&0xFF;
 	}
 	return bytes;
 }
+
+
+int init(){
+
+	if (t2fs_initialized) return SUCCESS;
+
+	// Reads first disk sector with raw MBR data
+	BYTE* master_sector = (BYTE*)malloc(SECTOR_SIZE);
+	if(read_sector(SECTOR_DISK_MBR, master_sector) != SUCCESS) {
+		return failed("Failed to read MBR"); }
+	// Read disk master boot record into application space
+	if(read_MBR_from_disk(master_sector, &disk_mbr) != SUCCESS) {
+		return failed("Fu"); }
+	// Alloc a superblock per existing partition
+	partition_superblocks = (struct t2fs_superbloco*)
+			malloc(sizeof(struct t2fs_superbloco)*disk_mbr.num_partitions);
+
+
+	t2fs_initialized = true;
+	return SUCCESS;
+}
+
 
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
@@ -93,12 +128,41 @@ int identify2 (char *name, int size) {
 	return SUCCESS;
 }
 
-int init_superblock(unsigned char* mbr) {
+int read_superblock_from_partition(int partition, int sectors_per_block) {
+
+	if (partition >= disk_mbr.num_partitions) return failed("Invalid partition bye");
+
+	int first_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	int last_sector  = disk_mbr.disk_partitions[partition].final_sector;
+	int num_sectors = last_sector - first_sector + 1;
+	// Gets pointer to superblock for legibility
+	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+
+	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"...
+	sb->version = 0x7E32; //ou 0x327E
+	sb->superblockSize = 1; // ou 0x01 0x00
+	sb->blockSize = sectors_per_block;
+	sb->diskSize = num_sectors / sectors_per_block; //Number of logical blocks in formatted disk.
+	// bitmap has "num_blocks_formatted" bits
+	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block);
+	// 10% of the partition blocks are reserved to inodes (ROUND UP)
+	sb->inodeAreaSize = (int)(ceil(0.10*sb->diskSize)); // qty in blocks
+	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr.sector_size * sectors_per_block);
+
+	calculate_checksum(sb);
+	// Superblock filled, needs to be saved into disk
+	// at sector 0 of its partition (first sector)
+	// "all superblock values are little-endian"
+	// so theres probably something wrong in declaration
+	write_sector(first_sector, (BYTE*)sb);
+	// Realmente nao sei se isso vai dar certo
+	// Se nao der: precisa uma funcao dedicada para passar toda
+	// a estrutura superbloco para disco, campo a campo,
+	// em formato unsigned char / BYTE little endian. fun
 	return SUCCESS;
 }
 
-
-int read_MBR(BYTE* master_sector, MBR* mbr) {
+int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
 	// reads the logical master boot record sector into a special structure of type MBR
 	mbr->version = to_int(&(master_sector[0]), 2);
 	mbr->sector_size = to_int(&(master_sector[2]), 2);
@@ -119,7 +183,6 @@ void calculate_checksum(struct t2fs_superbloco* sb) {
 	// A superblock's checksum is the 1-complement of a sum of 5 integers.
 	// Each integer is 4 bytes unsigned little-endian.
 	BYTE temp4[4];
-
 	DWORD checksum = to_int((BYTE*)sb->id, 4);
 	// Version + superblockSize (2 bytes each, both little endian)
 	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->version, 2), 2);
@@ -135,11 +198,9 @@ void calculate_checksum(struct t2fs_superbloco* sb) {
 	checksum += to_int(temp4, 4);
 	// diskSize (a DWORD of 4 Bytes)
 	checksum += sb->diskSize;
-
-	// flip it and reverse it
+	// One's complement
 	sb->Checksum = ~checksum;
 }
-
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
 		arquivos T2FS definido usando blocos de dados de tamanho
@@ -147,54 +208,17 @@ Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para
 -----------------------------------------------------------------------------*/
 int format2(int partition, int sectors_per_block) {
 
-	BYTE* master_sector = (BYTE*)malloc(SECTOR_SIZE);
-	if(read_sector(0, master_sector) != SUCCESS) return failed("Failed to read MBR");
-	MBR* disk_mbr = (MBR*)malloc(sizeof(MBR));
-	// quero saber se a partition eh valida
-	// tem que ler 2 bytes no MBR pra saber qtd de partitions
-	if( read_MBR(master_sector, disk_mbr) != SUCCESS) return failed("Fu");
+	if(init() != SUCCESS) return failed("Failed to initialize.");
 
-	if (partition >= disk_mbr->num_partitions) return failed("Invalid partition bye");
-
-	int first_sector = disk_mbr->disk_partitions[partition].initial_sector;
-	int last_sector  = disk_mbr->disk_partitions[partition].final_sector;
-	int num_sectors = last_sector - first_sector + 1;
-
-	int num_blocks_formatted = num_sectors / sectors_per_block;
-
-	// alocar um superbloco
-	struct t2fs_superbloco* sb = (struct t2fs_superbloco*)malloc(sizeof(struct t2fs_superbloco));
-	// inicializar
-	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"...
-	sb->version = 0x7E32; //ou 0x327E
-	sb->superblockSize = 1; // ou 0x01 0x00
-	sb->blockSize = sectors_per_block;
-	sb->diskSize = num_blocks_formatted;
-	// bitmap has "num_blocks_formatted" bits
-	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr->sector_size * sectors_per_block);
-
-	// 10% of the partition blocks are reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (int)(ceil(0.10*sb->diskSize)); // qty in blocks
-	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr->sector_size * sectors_per_block);
-
-	calculate_checksum(sb);
-
-	// Superblock filled, needs to be saved into disk
-	// at sector 0 of its partition (first sector)
-	// "all superblock values are little-endian"
-	// so theres probably something wrong in declaration
-
-	write_sector(first_sector, (BYTE*)sb);
-	// Realmente nao sei se isso vai dar certo
-	// Se nao der: precisa uma funcao dedicada para passar toda
-	// a estrutura superbloco para disco, campo a campo,
-	// em formato unsigned char / BYTE little endian. fun
+	if( read_superblock_from_partition(partition, sectors_per_block) != SUCCESS){
+		return failed("Failed to read superblock.");
+	}
 
 	// Allocates both Bitmaps (block status and inode status)
 	// Input: disk sector where the partition's superblock is
 	// (aka, the first sector in a formatted partition)
 	// Output: success/error code
-	if( openBitmap2(first_sector) != SUCCESS){
+	if( openBitmap2(disk_mbr.disk_partitions[partition].initial_sector) != SUCCESS){
 		// provavelmente desalocar alguma coisa
 		return failed("Carissimi nao gostou do meu superbloco");
 	}
@@ -207,10 +231,6 @@ int format2(int partition, int sectors_per_block) {
 
 return SUCCESS;
 }
-
-
-
-
 
 /*-----------------------------------------------------------------------------
 Função:	Monta a partição indicada por "partition" no diretório raiz
