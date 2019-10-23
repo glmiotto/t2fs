@@ -1,6 +1,4 @@
 #include "../include/t2fs.h"
-#include "../include/cthread.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -58,8 +56,8 @@ int main(int argc, char *argv[]) {
 
   printf("%u", r);
 
-  unsigned char* b = to_BYTE(pow(2,32)-1, 4);
-  unsigned int i= to_int(b,4);
+  unsigned char* bb = to_BYTE(pow(2,32)-1, 4);
+  unsigned int i= to_int(bb,4);
 
 printf("%u",i);
 

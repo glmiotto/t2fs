@@ -2,9 +2,9 @@
 /**
 */
 #include "t2fs.h"
-#include "t2disk.h"
-#include "apidisk.h"
-#include "bitmap2.h"
+#include "../include/t2disk.h"
+#include "../include/apidisk.h"
+#include "../include/bitmap2.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -166,6 +166,7 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	// converts everything to little endian BYTE
 	write_superblock_to_partition(partition);
 
+
 	return SUCCESS;
 }
 
@@ -257,13 +258,18 @@ int format2(int partition, int sectors_per_block) {
 		return failed("Carissimi nao gostou do meu superbloco");
 	}
 
+	// TODO:
 	// Allocate all i-nodes to fill inodeAreaSize ???
 
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
 	// file data, directory files, and index blocks for big files.
 
-return SUCCESS;
+	// OBS: precisa atualizar algo no MBR apos dar format na particao??
+	// ID do superbloco eh id do filesystem usado
+	// nome da particao no MBR acho que eh outra coisa.
+
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------

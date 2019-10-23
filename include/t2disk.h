@@ -1,7 +1,7 @@
 
 
-#ifndef __T2DSIK___
-#define __T2DSIK___
+#ifndef __T2DISK___
+#define __T2DISK___
 
 #include "t2fs.h"
 
@@ -69,4 +69,3 @@ struct t2fs_inode {
 
 
 #endif
-
