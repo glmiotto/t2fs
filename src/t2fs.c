@@ -60,6 +60,11 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 // GLOBAL VARIABLES
 MBR disk_mbr;
 struct t2fs_superbloco* partition_superblocks;
+int root = -1 ;
+char* mount_path; // uma string "/{partition name}...." ?
+// duvidas:
+// como fazer a string de montagem dinamicamente em c
+
 FILE2 open_files[MAX_FILES_OPEN];
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
@@ -115,6 +120,21 @@ int init(){
 	return SUCCESS;
 }
 
+void report_superblock(int partition ){
+	printf("********************************\n");
+	printf("Superblock info for partition %d\n", partition);
+	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+	printf("Id: %s\n",sb->id);
+	printf("Version: %d\n",sb->version);
+	printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
+	printf("Free Blocks Bitmap Size(in blocks): %d\n",sb->freeBlocksBitmapSize);
+	printf("Free Inodes Bitmap Size(in blocks): %d\n",sb->freeInodeBitmapSize);
+	printf("Inode area size (in blocks): %d\n",sb->inodeAreaSize);
+	printf("Block size (in sectors): %d\n",sb->blockSize);
+	printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
+	printf("Checksum: %d", sb->Checksum);
+}
+
 
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
@@ -139,12 +159,15 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	// Gets pointer to superblock for legibility
 	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
 
-	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"...
-	sb->version = 0x7E32; //ou 0x327E
-	sb->superblockSize = 1; // ou 0x01 0x00
+	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"... --> nope
+	sb->version = 0x7E32; //ou 0x327E  --> nope
+	sb->superblockSize = 1; // ou 0x01 0x00  --> nope
 	sb->blockSize = sectors_per_block;
 	sb->diskSize = num_sectors / sectors_per_block; //Number of logical blocks in formatted disk.
 	// bitmap has "num_blocks_formatted" bits
+	// freeBlocksBitmapSize is the number of blocks needed to store the bitmap.
+	// therefore: "diskSize in blocks" bits, divided by 8 to get bytes.
+	// bytes divided by ( number of bytes per sector * number of sectors per block).
 	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block);
 	// 10% of the partition blocks are reserved to inodes (ROUND UP)
 	sb->inodeAreaSize = (int)(ceil(0.10*sb->diskSize)); // qty in blocks
@@ -164,6 +187,8 @@ int initialize_superblock(int partition, int sectors_per_block) {
 
 	// (edit) nao foi tao dificil actually. implemented function that
 	// converts everything to little endian BYTE
+
+	// edit 2: nao precisava converter forçadamente pq o C faz isso automático
 	write_superblock_to_partition(partition);
 
 
@@ -189,8 +214,7 @@ int write_superblock_to_partition(int partition) {
 	strncpy((char*)&(output[20]), (char*)to_BYTE(sb->Checksum, 4),4);
 
 	if (write_sector(
-		disk_mbr.disk_partitions[partition].initial_sector,
-		output) != SUCCESS) {
+		disk_mbr.disk_partitions[partition].initial_sector, output) != SUCCESS) {
 		return failed("Failed to write superblock to partition sector");
 	}
 	else return SUCCESS;
