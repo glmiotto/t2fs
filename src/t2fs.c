@@ -96,7 +96,16 @@ DWORD to_int(BYTE* bytes, int num_bytes) {
 	for (int i = 0; i < num_bytes ; ++i){
 		value |= (DWORD)(bytes[i] << 8*i) ;
 	}
+	return value;
+}
 
+DWORD new_to_int(BYTE* bytes, int num_bytes) {
+	// doesnt flip the endianness because C do dat
+	DWORD value = 0;
+	for (int i =0; i<num_bytes; i++) {
+		value =0 ;
+		value |= (DWORD)(bytes[i] << 8*(num_bytes-1-i));
+	}
 	return value;
 }
 
@@ -123,8 +132,7 @@ int init(){
 	if(read_MBR_from_disk(master_sector, &disk_mbr) != SUCCESS) {
 		return failed("Fu"); }
 	// Alloc a superblock per existing partition
-	partition_superblocks = (T_SUPERBLOCK*)
-			malloc(sizeof(T_SUPERBLOCK)*disk_mbr.num_partitions);
+	partition_superblocks = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK)*disk_mbr.num_partitions);
 
 
 	t2fs_initialized = true;
@@ -145,7 +153,6 @@ void report_superblock(int partition ){
 	printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
 	printf("Checksum: %d", sb->Checksum);
 }
-
 
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
@@ -201,8 +208,6 @@ int initialize_superblock(int partition, int sectors_per_block) {
 
 	// edit 2: nao precisava converter forçadamente pq o C faz isso automático
 	write_superblock_to_partition(partition);
-
-
 	return SUCCESS;
 }
 
@@ -230,7 +235,6 @@ int write_superblock_to_partition(int partition) {
 	}
 	else return SUCCESS;
 }
-
 
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
 	// reads the logical master boot record sector into a special structure of type MBR
@@ -275,7 +279,6 @@ void calculate_checksum(T_SUPERBLOCK* sb) {
 int initialize_inode_area(int partition){
 	// Helpful pointer
 	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
-
 	// Starting block:
 	// First partition block is superblock
 	// Then come bitmaps (size given in block)
@@ -283,7 +286,6 @@ int initialize_inode_area(int partition){
 	// ROOT DIRECTORY is inode number 0
 	// Each inode holds 32 bytes.
 	// inode area given in BLOCKS
-
 	// Calculate first inodes block within the partition
 	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
 	// Add offset to where the partition starts in the disk
@@ -298,19 +300,20 @@ int initialize_inode_area(int partition){
 	dummy_inode.singleIndPtr = -1;
 	dummy_inode.doubleIndPtr = -1;
 	dummy_inode.RefCounter = 0;
-	T_INODE* inodes = (T_INODE*)malloc(INODES_PER_SECTOR * sizeof(T_INODE));
-	for (int i = 0 ; i < INODES_PER_SECTOR; i++){
-		memcpy( &(inodes[i]), &dummy_inode, sizeof(T_INODE));
-	}
-	// Area de inodes em blks * setores por blk
+
 	printf("Tamanho de um inode: %d", (int) sizeof(T_INODE));
-	for (int sector=0; sector < sb->inodeAreaSize * sb->blockSize; sector++){
-		if( write_sector(sector, (unsigned char*)inodes) != SUCCESS){
-			free(inodes);
-			return(failed("Failed to write inode sector in disk"));
-		}
-	}
-	free(inodes);
+	// T_INODE* inodes = (T_INODE*)malloc(INODES_PER_SECTOR * sizeof(T_INODE));
+	// for (int i = 0 ; i < INODES_PER_SECTOR; i++){
+	// 	memcpy( &(inodes[i]), &dummy_inode, sizeof(T_INODE));
+	// }
+	// // Area de inodes em blks * setores por blk
+	// for (int isector=0; isector < sb->inodeAreaSize * sb->blockSize; isector++){
+	// 	if( write_sector(start_sector+isector, (unsigned char*)inodes) != SUCCESS){
+	// 		free(inodes);
+	// 		return(failed("Failed to write inode sector in disk"));
+	// 	}
+	// }
+	// free(inodes);
 	return SUCCESS;
 }
 
@@ -346,6 +349,115 @@ int initialize_bitmaps(int partition){
 	return SUCCESS;
 }
 
+DWORD map_inode_to_sector(int partition, int inode_idx) {
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+
+	DWORD sector = disk_mbr.disk_partitions[partition].initial_sector;
+	sector += sb->superblockSize + sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize;
+	sector += floor(inode_idx/INODES_PER_SECTOR);
+	return sector;
+}
+DWORD map_block_to_sector(int partition, int block) {
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+
+	DWORD sector = disk_mbr.disk_partitions[partition].initial_sector;
+	sector += sb->superblockSize + sb->freeInodeBitmapSize
+					+ sb->freeBlocksBitmapSize + sb->inodeAreaSize;
+	sector += block;
+	return sector;
+}
+
+// Input: partition number, inode index in disk, pointer to an allocated inode structure
+int read_inode(int partition, int inode_index, T_INODE* inode){
+
+	return SUCCESS;
+}
+
+
+int BYTE_to_INODE(BYTE* sector, int inode_index, T_INODE* inode) {
+
+	// Reads a single inode from the sector it belongs,
+	// as a pre-allocated inode structure of DWORD data for easy access.
+	DWORD offset = (inode_index % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
+	sector += offset;
+	inode->blocksFileSize = to_int(&(sector[0]), 4);
+	inode->bytesFileSize = 	to_int(&(sector[4]), 4);
+	inode->dataPtr[0] = 		to_int(&(sector[8]), 4);
+	inode->dataPtr[1] = 		to_int(&(sector[12]), 4);
+	inode->singleIndPtr = 	to_int(&(sector[16]), 4);
+	inode->doubleIndPtr = 	to_int(&(sector[20]), 4);
+	inode->RefCounter = 		to_int(&(sector[24]), 4);
+	inode->reservado = 			to_int(&(sector[28]), 4);
+
+	return SUCCESS;
+}
+
+int INODE_to_BYTE(T_INODE* inode, BYTE* bytes) {
+
+	// Converts inode DWORDs to unsigned char (BYTE) then copies the data to a
+	// BYTE array. Probably not very useful since it doesnt write to any sector
+	// and another function will need to call this one for that but alas.
+	strncpy((char*)&(bytes[0]),  (char*)to_BYTE(inode->blocksFileSize, 4), 4);
+	strncpy((char*)&(bytes[4]),  (char*)to_BYTE(inode->bytesFileSize, 4), 4);
+	strncpy((char*)&(bytes[8]),  (char*)to_BYTE(inode->dataPtr[0], 4), 4);
+	strncpy((char*)&(bytes[12]), (char*)to_BYTE(inode->dataPtr[1], 4), 4);
+	strncpy((char*)&(bytes[16]), (char*)to_BYTE(inode->singleIndPtr, 4), 4);
+	strncpy((char*)&(bytes[20]), (char*)to_BYTE(inode->doubleIndPtr, 4), 4);
+	strncpy((char*)&(bytes[24]), (char*)to_BYTE(inode->RefCounter, 4), 4);
+	strncpy((char*)&(bytes[28]), (char*)to_BYTE(inode->reservado, 4), 4);
+
+	return SUCCESS;
+}
+
+int write_new_inode(int partition, T_INODE* inode){
+
+	int code_node = searchBitmap2(BITMAP_INODES, BIT_FREE);
+
+	if(code_node<0) {return(failed("Failed to search inode bitmap."));}
+	if(code_node==0){return(failed("Inode bitmap full. Cannot write inode."));}
+
+	if(code_node > 0) { // inode index
+		// TODO: teste de limite do numero de blocos contando a necessidade de
+		// bloco de indices single apos 2 blocos e double após {2+x} blocos.
+		int inode_idx = code_node ;
+		int* block_indexes = (int*) malloc((2+inode->blocksFileSize)*sizeof(int));
+
+		int count_free =  0 ;
+		while(count_free < inode->blocksFileSize) {
+
+			int code_blocks = searchBitmap2(BITMAP_INODES, BIT_FREE);
+			if (code_blocks < 0 ) {return(failed("Failed blocks bitmap search."));}
+			if (code_blocks == 0) {return(failed("Data bitmap full. Cannot write inode.")); }
+
+			// Collect all indexes in a list
+			block_indexes[count_free] = code_blocks;
+			count_free++;
+		}
+
+		DWORD sector = map_inode_to_sector(partition, inode_idx);
+
+		BYTE* buffer_sector = (BYTE*) malloc(INODES_PER_SECTOR*sizeof(T_INODE));
+		read_sector(sector, buffer_sector);
+
+		BYTE* inode_as_bytes = (BYTE*) malloc(sizeof(T_INODE));
+		INODE_to_BYTE(inode, inode_as_bytes);
+
+		DWORD offset = (inode_idx % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
+		DWORD inode_initial_byte = sector + offset;
+		for (int i = 0; i < 8; i++) {
+			strncpy(
+				(char*)&(buffer_sector[inode_initial_byte + i*4]),
+				(char*)&(inode_as_bytes[i*4]),
+				4);
+		}
+
+		if(write_sector(sector, buffer_sector) != SUCCESS) {
+			return(failed("WriteNewInode, WriteSector failed: shit "));
+		}
+		return SUCCESS;
+	}
+	return SUCCESS;
+}
 
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
