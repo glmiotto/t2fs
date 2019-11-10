@@ -10,13 +10,22 @@
 #include <stdlib.h>
 #include <math.h>
 /* **************************************************************** */
-typedef unsigned char BYTE;
+typedef unsigned char 					BYTE;
+typedef unsigned short int  		WORD;
+typedef unsigned int        		DWORD;
+typedef struct t2fs_superbloco 	T_SUPERBLOCK;
+typedef struct t2fs_inode 			T_INODE;
+typedef struct t2fs_record 		 	T_RECORD;
 #define SUCCESS 0
 #define FAILED -1
 #define SECTOR_SIZE 256
+#define INODE_SIZE_BYTES 32
+#define INODES_PER_SECTOR SECTOR_SIZE / INODE_SIZE_BYTES
 
-#define	BITMAP_INODE	0
-#define	BITMAP_DADOS	1
+#define	BITMAP_INODES	0
+#define	BITMAP_BLOCKS	1
+#define BIT_FREE 0
+#define BIT_OCCUPIED 1
 
 #define	TYPEVAL_INVALIDO	0x00
 #define	TYPEVAL_REGULAR		0x01
@@ -48,7 +57,7 @@ int init();
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
 int initialize_superblock(int partition, int sectors_per_block);
 int write_superblock_to_partition(int partition);
-void calculate_checksum(struct t2fs_superbloco* sb) ;
+void calculate_checksum(T_SUPERBLOCK* sb) ;
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* bytes, int num_bytes);
 BYTE* to_BYTE(DWORD value, int num_bytes);
@@ -59,11 +68,13 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 /* **************************************************************** */
 // GLOBAL VARIABLES
 MBR disk_mbr;
-struct t2fs_superbloco* partition_superblocks;
+T_SUPERBLOCK* partition_superblocks;
 int root = -1 ;
 char* mount_path; // uma string "/{partition name}...." ?
 // duvidas:
 // como fazer a string de montagem dinamicamente em c
+
+T_INODE dummy_inode;
 
 FILE2 open_files[MAX_FILES_OPEN];
 // Maximum of 10 open file handles at once
@@ -112,8 +123,8 @@ int init(){
 	if(read_MBR_from_disk(master_sector, &disk_mbr) != SUCCESS) {
 		return failed("Fu"); }
 	// Alloc a superblock per existing partition
-	partition_superblocks = (struct t2fs_superbloco*)
-			malloc(sizeof(struct t2fs_superbloco)*disk_mbr.num_partitions);
+	partition_superblocks = (T_SUPERBLOCK*)
+			malloc(sizeof(T_SUPERBLOCK)*disk_mbr.num_partitions);
 
 
 	t2fs_initialized = true;
@@ -123,7 +134,7 @@ int init(){
 void report_superblock(int partition ){
 	printf("********************************\n");
 	printf("Superblock info for partition %d\n", partition);
-	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
 	printf("Id: %s\n",sb->id);
 	printf("Version: %d\n",sb->version);
 	printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
@@ -157,7 +168,7 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	int last_sector  = disk_mbr.disk_partitions[partition].final_sector;
 	int num_sectors = last_sector - first_sector + 1;
 	// Gets pointer to superblock for legibility
-	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
 
 	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"... --> nope
 	sb->version = 0x7E32; //ou 0x327E  --> nope
@@ -198,7 +209,7 @@ int initialize_superblock(int partition, int sectors_per_block) {
 int write_superblock_to_partition(int partition) {
 	BYTE* output = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
 	// Gets pointer to application-space superblock
-	struct t2fs_superbloco* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
 
 	output[0] = sb->id[3];
 	output[1] = sb->id[2];
@@ -238,7 +249,7 @@ int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
 return SUCCESS;
 }
 
-void calculate_checksum(struct t2fs_superbloco* sb) {
+void calculate_checksum(T_SUPERBLOCK* sb) {
 	// A superblock's checksum is the 1-complement of a sum of 5 integers.
 	// Each integer is 4 bytes unsigned little-endian.
 	BYTE temp4[4];
@@ -260,6 +271,82 @@ void calculate_checksum(struct t2fs_superbloco* sb) {
 	// One's complement
 	sb->Checksum = ~checksum;
 }
+
+int initialize_inode_area(int partition){
+	// Helpful pointer
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+
+	// Starting block:
+	// First partition block is superblock
+	// Then come bitmaps (size given in block)
+	// Then the inodes, occupying 10% of the disk.
+	// ROOT DIRECTORY is inode number 0
+	// Each inode holds 32 bytes.
+	// inode area given in BLOCKS
+
+	// Calculate first inodes block within the partition
+	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
+	// Add offset to where the partition starts in the disk
+	int start_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	// Add offset to where in the partition the inodes start
+	start_sector += start_block * sb->blockSize;
+
+	dummy_inode.blocksFileSize = -1;
+	dummy_inode.bytesFileSize = -1;
+	dummy_inode.dataPtr[0] = -1;
+	dummy_inode.dataPtr[1] = -1;
+	dummy_inode.singleIndPtr = -1;
+	dummy_inode.doubleIndPtr = -1;
+	dummy_inode.RefCounter = 0;
+	T_INODE* inodes = (T_INODE*)malloc(INODES_PER_SECTOR * sizeof(T_INODE));
+	for (int i = 0 ; i < INODES_PER_SECTOR; i++){
+		memcpy( &(inodes[i]), &dummy_inode, sizeof(T_INODE));
+	}
+	// Area de inodes em blks * setores por blk
+	printf("Tamanho de um inode: %d", (int) sizeof(T_INODE));
+	for (int sector=0; sector < sb->inodeAreaSize * sb->blockSize; sector++){
+		if( write_sector(sector, (unsigned char*)inodes) != SUCCESS){
+			free(inodes);
+			return(failed("Failed to write inode sector in disk"));
+		}
+	}
+	free(inodes);
+	return SUCCESS;
+}
+
+int initialize_bitmaps(int partition){
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+
+	// Allocates both Bitmaps (block status and inode status)
+	// Input: disk sector where the partition's superblock is
+	// (aka, the first sector in a formatted partition)
+	// Output: success/error code
+	if(openBitmap2(disk_mbr.disk_partitions[partition].initial_sector) != SUCCESS){
+		// provavelmente desalocar alguma coisa
+		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
+	}
+	// Bitmaps open and allocated, needs to be initialized as FREE
+	// inode bitmap: handle 0
+	// blocks bitmap: handle not 0
+	for (int bit_idx=0;  // TODO: TALVEZ TENHA QUE SER POSITIVO (ROOT DIRECTORY É IDX 0)
+				bit_idx < sb->freeInodeBitmapSize * sb->blockSize *SECTOR_SIZE*8;
+					bit_idx++){
+		if(setBitmap2(BITMAP_INODES, bit_idx, BIT_FREE) != SUCCESS) {
+			return(failed("Failed to set bit as free in inode bitmap"));
+		}
+	}
+	for (int bit_idx=0;
+		bit_idx < sb->freeBlocksBitmapSize * sb->blockSize *SECTOR_SIZE*8;
+		bit_idx++) {
+
+		if(setBitmap2(BITMAP_BLOCKS, bit_idx, BIT_FREE) != SUCCESS) {
+			return(failed("Failed to set bit as free in blocks bitmap"));
+		}
+	}
+	return SUCCESS;
+}
+
+
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
 		arquivos T2FS definido usando blocos de dados de tamanho
@@ -269,30 +356,20 @@ int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
 
-	if( initialize_superblock(partition, sectors_per_block) != SUCCESS){
+	if( initialize_superblock(partition, sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
-	}
 
-	// Allocates both Bitmaps (block status and inode status)
-	// Input: disk sector where the partition's superblock is
-	// (aka, the first sector in a formatted partition)
-	// Output: success/error code
-	if( openBitmap2(disk_mbr.disk_partitions[partition].initial_sector) != SUCCESS){
-		// provavelmente desalocar alguma coisa
-		return failed("Carissimi nao gostou do meu superbloco");
-	}
+	if(initialize_inode_area(partition) != SUCCESS)
+		return(failed("Format2: Failed to initialize inode area"));
 
-	// TODO:
-	// Allocate all i-nodes to fill inodeAreaSize ???
-
+	if(initialize_bitmaps(partition) != SUCCESS)
+		return(failed("Format2: Failed to initialize bitmap area"));
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
 	// file data, directory files, and index blocks for big files.
-
 	// OBS: precisa atualizar algo no MBR apos dar format na particao??
 	// ID do superbloco eh id do filesystem usado
 	// nome da particao no MBR acho que eh outra coisa.
-
 	return SUCCESS;
 }
 
