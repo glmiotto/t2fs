@@ -10,9 +10,6 @@
 #include <stdlib.h>
 #include <math.h>
 /* **************************************************************** */
-typedef unsigned char 					BYTE;
-typedef unsigned short int  		WORD;
-typedef unsigned int        		DWORD;
 typedef struct t2fs_superbloco 	T_SUPERBLOCK;
 typedef struct t2fs_inode 			T_INODE;
 typedef struct t2fs_record 		 	T_RECORD;
@@ -551,7 +548,7 @@ T_INODE* new_file(T_INODE* root, char* filename)
 
 int set_file_open(T_INODE* f)
 {
-	
+
 	for(int i=0; i <= MAX_FILES_OPEN; i++)
 	{
 		if(open_files[i].inode==NULL)
@@ -561,7 +558,7 @@ int set_file_open(T_INODE* f)
 
 			return i;
 		}
-		
+
 	}
 
 	return -1;
@@ -571,7 +568,7 @@ int set_file_close(FILE2 handle)
 {
 	if(handle >= MAX_FILES_OPEN || handle < 0)
 		return FAILED;
-	
+
 
 	open_files[handle].inode = NULL;
 	open_files[handle].current_pointer = -1;
@@ -599,7 +596,7 @@ int remove_file_content(T_INODE* inode)
 	// // zera bits no bitmap de dados
 	// percorre ponteiros de indirecao dupla, traduz ponteiro de dados para posicao na posicao, zera posicoes no bitmap de dados
 	// percorre ponteiros de inodes, traduz ponteiro para posicao no bitmap de inodes, zera posicoes no bitmap de inodes
-	
+
 	// percorre ponteiros indiretos de indirecao simples
 
 	// percorre ponteiros de dados, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
@@ -615,7 +612,7 @@ int remove_record(T_INODE* root, char* filename)
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
 
-	// percorre blocos de dados do diretorio raiz buscando registro 
+	// percorre blocos de dados do diretorio raiz buscando registro
 
 	return SUCCESS;
 }
@@ -676,7 +673,7 @@ FILE2 create2 (char *filename) {
 
 	if(f != NULL)
 		return FAILED;
-	
+
 	T_INODE* f2 = new_file(root, filename);
 
 	FILE2 handle = set_file_open(f2);

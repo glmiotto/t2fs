@@ -8,9 +8,6 @@
 typedef int boolean;
 #define false 0
 #define true (!false)
-typedef unsigned char       BYTE;
-typedef unsigned short int  WORD;
-typedef unsigned int        DWORD;
 
 #define	TYPEVAL_INVALIDO	0x00
 #define	TYPEVAL_REGULAR		0x01
