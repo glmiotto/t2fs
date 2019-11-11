@@ -10,67 +10,12 @@
 #include <stdlib.h>
 #include <math.h>
 /* **************************************************************** */
-typedef struct t2fs_superbloco 	T_SUPERBLOCK;
-typedef struct t2fs_inode 			T_INODE;
-typedef struct t2fs_record 		 	T_RECORD;
-#define SUCCESS 0
-#define FAILED -1
-#define SECTOR_SIZE 256
-#define INODE_SIZE_BYTES 32
-#define ENTRY_SIZE_BYTES sizeof(T_RECORD)
-#define INODES_PER_SECTOR SECTOR_SIZE / INODE_SIZE_BYTES
-#define ENTRIES_PER_SECTOR SECTOR_SIZE / ENTRY_SIZE_BYTES
-
-#define	BITMAP_INODES	0
-#define	BITMAP_BLOCKS	1
-#define BIT_FREE 0
-#define BIT_OCCUPIED 1
-
-#define	TYPEVAL_INVALIDO	0x00
-#define	TYPEVAL_REGULAR		0x01
-#define	TYPEVAL_LINK		0x02
-
-#define MAX_FILE_NAME_SIZE 255
-#define MAX_FILES_OPEN 10
-
-#define SECTOR_DISK_MBR 0
-#define SECTOR_PARTITION_SUPERBLOCK 0
-#define error() printf("Error thrown at %s:%s:%d\n",FILE,__FUNCTION__,LINE);
-/* **************************************************************** */
-typedef struct Partition{
-	DWORD initial_sector;
-	DWORD final_sector;
-	BYTE partition_name[24];
-} PARTITION;
-
-typedef struct Mbr{
-	DWORD version;
-	DWORD sector_size;
-	DWORD initial_byte;
-	DWORD num_partitions;
-	PARTITION* disk_partitions;
-} MBR;
-
-struct Open_file{
-	T_INODE* inode;
-	int current_pointer;
-};
-/* **************************************************************** */
-// Auxiliary functions
-int init();
-int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
-int initialize_superblock(int partition, int sectors_per_block);
-int write_superblock_to_partition(int partition);
-void calculate_checksum(T_SUPERBLOCK* sb);
-int init_open_files();
-// Conversion from/to little-endian unsigned chars
-DWORD to_int(BYTE* bytes, int num_bytes);
-BYTE* to_BYTE(DWORD value, int num_bytes);
 // Debugging
 int failed(char* msg) {printf("%s\n", msg);return FAILED;}
 void print(char* msg) {printf("%s\n", msg);}
 void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
-/* **************************************************************** */
+
+
 // GLOBAL VARIABLES
 MBR disk_mbr;
 T_SUPERBLOCK* partition_superblocks;
@@ -125,7 +70,7 @@ DWORD new_to_int(BYTE* bytes, int num_bytes) {
 	return value;
 }
 
-BYTE* to_BYTE(DWORD value, int num_bytes) {
+BYTE* DWORD_to_BYTE(DWORD value, int num_bytes) {
 
 	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
 	strncpy((char*)bytes, (char*)"\0", num_bytes );
@@ -134,6 +79,16 @@ BYTE* to_BYTE(DWORD value, int num_bytes) {
 	}
 	return bytes;
 }
+BYTE* WORD_to_BYTE(WORD value, int num_bytes) {
+
+	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
+	strncpy((char*)bytes, (char*)"\0", num_bytes );
+	for (int i = 0; i < num_bytes; ++i) {
+		bytes[i] = (value >> (8*i))&0xFF;
+	}
+	return bytes;
+}
+
 
 
 int init(){
@@ -174,6 +129,46 @@ void report_superblock(int partition ){
 	printf("Block size (in sectors): %d\n",sb->blockSize);
 	printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
 	printf("Checksum: %d", sb->Checksum);
+}
+
+int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
+
+	sb->id[3] = bytes[0];
+	sb->id[2] = bytes[1];
+	sb->id[1] = bytes[2];
+	sb->id[0] = bytes[3];
+	sb->version =	to_int(&(bytes[4]), 2);
+	sb->superblockSize = to_int(&(bytes[6]), 2);
+	sb->freeBlocksBitmapSize = to_int(&(bytes[8]), 2);
+	sb->freeInodeBitmapSize = to_int(&(bytes[10]), 2);
+	sb->inodeAreaSize = to_int(&(bytes[12]), 2);
+	sb->blockSize = to_int(&(bytes[14]), 2);
+	sb->diskSize = to_int(&(bytes[16]), 4);
+	sb->Checksum = to_int(&(bytes[20]), 4);
+	return SUCCESS;
+}
+
+int read_superblock_from_disk(MBR* mbr, T_SUPERBLOCK* sb) {
+
+	printf("Initializing...\n");
+	init();
+	printf("Initialized.\n");
+
+	format2(0, 256);
+	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
+	printf("Reading sector from disk...\n");
+	int j = 0;
+	printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
+	printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
+	printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
+	if(read_sector(mbr->disk_partitions[j].initial_sector, buffer) <0)
+			printf("Nao leu sector certo\n");
+
+	printf("Byteman vs Superblock\n");
+	BYTE_to_SUPERBLOCK(buffer, sb);
+	printf("BvS done\n");
+
+	return SUCCESS;
 }
 
 
@@ -221,16 +216,18 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"... --> nope
 	sb->version = 0x7E32; //ou 0x327E  --> nope
 	sb->superblockSize = 1; // ou 0x01 0x00  --> nope
-	sb->blockSize = sectors_per_block;
-	sb->diskSize = num_sectors / sectors_per_block; //Number of logical blocks in formatted disk.
+	printf("SECTOR PER BLOCO %d", sectors_per_block);
+	sb->blockSize = (WORD)sectors_per_block;
+
+	sb->diskSize = (DWORD)(num_sectors / (DWORD)sectors_per_block); //Number of logical blocks in formatted disk.
 	// bitmap has "num_blocks_formatted" bits
 	// freeBlocksBitmapSize is the number of blocks needed to store the bitmap.
 	// therefore: "diskSize in blocks" bits, divided by 8 to get bytes.
 	// bytes divided by ( number of bytes per sector * number of sectors per block).
-	sb->freeBlocksBitmapSize = sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block);
+	sb->freeBlocksBitmapSize = (WORD)(sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block));
 	// 10% of the partition blocks are reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (int)(ceil(0.10*sb->diskSize)); // qty in blocks
-	sb->freeInodeBitmapSize = sb->inodeAreaSize / 8 / (disk_mbr.sector_size * sectors_per_block);
+	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize)); // qty in blocks
+	sb->freeInodeBitmapSize = (WORD)(sb->inodeAreaSize / 8 / (disk_mbr.sector_size * sectors_per_block));
 
 	calculate_checksum(sb);
 	// Superblock filled, needs to be saved into disk
@@ -261,14 +258,14 @@ int write_superblock_to_partition(int partition) {
 	output[1] = sb->id[2];
 	output[2] = sb->id[1];
 	output[3] = sb->id[0];
-	strncpy((char*)&(output[4]), (char*)to_BYTE(sb->version, 2),2);
-	strncpy((char*)&(output[6]), (char*)to_BYTE(sb->superblockSize, 2),2);
-	strncpy((char*)&(output[8]), (char*)to_BYTE(sb->freeBlocksBitmapSize, 2),2);
-	strncpy((char*)&(output[10]), (char*)to_BYTE(sb->freeInodeBitmapSize, 2),2);
-	strncpy((char*)&(output[12]), (char*)to_BYTE(sb->inodeAreaSize, 2),2);
-	strncpy((char*)&(output[14]), (char*)to_BYTE(sb->blockSize, 2),2);
-	strncpy((char*)&(output[16]), (char*)to_BYTE(sb->diskSize, 4),4);
-	strncpy((char*)&(output[20]), (char*)to_BYTE(sb->Checksum, 4),4);
+	strncpy((char*)&(output[4]), (char*)WORD_to_BYTE(sb->version, 2),2);
+	strncpy((char*)&(output[6]), (char*)WORD_to_BYTE(sb->superblockSize, 2),2);
+	strncpy((char*)&(output[8]), (char*)WORD_to_BYTE(sb->freeBlocksBitmapSize, 2),2);
+	strncpy((char*)&(output[10]),(char*)WORD_to_BYTE(sb->freeInodeBitmapSize, 2),2);
+	strncpy((char*)&(output[12]),(char*)WORD_to_BYTE(sb->inodeAreaSize, 2),2);
+	strncpy((char*)&(output[14]),(char*)WORD_to_BYTE(sb->blockSize, 2),2);
+	strncpy((char*)&(output[16]),(char*)DWORD_to_BYTE(sb->diskSize, 4),4);
+	strncpy((char*)&(output[20]),(char*)DWORD_to_BYTE(sb->Checksum, 4),4);
 
 	if (write_sector(
 		disk_mbr.disk_partitions[partition].initial_sector, output) != SUCCESS) {
@@ -300,16 +297,16 @@ void calculate_checksum(T_SUPERBLOCK* sb) {
 	BYTE temp4[4];
 	DWORD checksum = to_int((BYTE*)sb->id, 4);
 	// Version + superblockSize (2 bytes each, both little endian)
-	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->version, 2), 2);
-	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->superblockSize,2), 2);
+	strncpy((char*)&(temp4[0]), (char*)WORD_to_BYTE(sb->version, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)WORD_to_BYTE(sb->superblockSize,2), 2);
 	checksum += to_int(temp4, 4);
 	// freeBlocksBitmapSize + freeInodeBitmapSize (2B each)
-	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->freeBlocksBitmapSize, 2), 2);
-	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->freeInodeBitmapSize,2), 2);
+	strncpy((char*)&(temp4[0]), (char*)WORD_to_BYTE(sb->freeBlocksBitmapSize, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)WORD_to_BYTE(sb->freeInodeBitmapSize,2), 2);
 	checksum += to_int(temp4, 4);
 	// inodeAreaSize + blockSize (2B each)
-	strncpy((char*)&(temp4[0]), (char*)to_BYTE(sb->inodeAreaSize, 2), 2);
-	strncpy((char*)&(temp4[2]), (char*)to_BYTE(sb->blockSize,2), 2);
+	strncpy((char*)&(temp4[0]), (char*)WORD_to_BYTE(sb->inodeAreaSize, 2), 2);
+	strncpy((char*)&(temp4[2]), (char*)WORD_to_BYTE(sb->blockSize,2), 2);
 	checksum += to_int(temp4, 4);
 	// diskSize (a DWORD of 4 Bytes)
 	checksum += sb->diskSize;
@@ -428,19 +425,19 @@ int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode) {
 	return SUCCESS;
 }
 
-int INODE_to_BYTE(T_INODE* inode, BYTE* bytes) {
+int INODE_DWORD_to_BYTE(T_INODE* inode, BYTE* bytes) {
 
 	// Converts inode DWORDs to unsigned char (BYTE) then copies the data to a
 	// BYTE array. Probably not very useful since it doesnt write to any sector
 	// and another function will need to call this one for that but alas.
-	strncpy((char*)&(bytes[0]),  (char*)to_BYTE(inode->blocksFileSize, 4), 4);
-	strncpy((char*)&(bytes[4]),  (char*)to_BYTE(inode->bytesFileSize, 4), 4);
-	strncpy((char*)&(bytes[8]),  (char*)to_BYTE(inode->dataPtr[0], 4), 4);
-	strncpy((char*)&(bytes[12]), (char*)to_BYTE(inode->dataPtr[1], 4), 4);
-	strncpy((char*)&(bytes[16]), (char*)to_BYTE(inode->singleIndPtr, 4), 4);
-	strncpy((char*)&(bytes[20]), (char*)to_BYTE(inode->doubleIndPtr, 4), 4);
-	strncpy((char*)&(bytes[24]), (char*)to_BYTE(inode->RefCounter, 4), 4);
-	strncpy((char*)&(bytes[28]), (char*)to_BYTE(inode->reservado, 4), 4);
+	strncpy((char*)&(bytes[0]),  (char*)DWORD_to_BYTE(inode->blocksFileSize, 4), 4);
+	strncpy((char*)&(bytes[4]),  (char*)DWORD_to_BYTE(inode->bytesFileSize, 4), 4);
+	strncpy((char*)&(bytes[8]),  (char*)DWORD_to_BYTE(inode->dataPtr[0], 4), 4);
+	strncpy((char*)&(bytes[12]), (char*)DWORD_to_BYTE(inode->dataPtr[1], 4), 4);
+	strncpy((char*)&(bytes[16]), (char*)DWORD_to_BYTE(inode->singleIndPtr, 4), 4);
+	strncpy((char*)&(bytes[20]), (char*)DWORD_to_BYTE(inode->doubleIndPtr, 4), 4);
+	strncpy((char*)&(bytes[24]), (char*)DWORD_to_BYTE(inode->RefCounter, 4), 4);
+	strncpy((char*)&(bytes[28]), (char*)DWORD_to_BYTE(inode->reservado, 4), 4);
 
 	return SUCCESS;
 }
@@ -476,7 +473,7 @@ int write_new_inode(int partition, T_INODE* inode){
 		if(read_sector(sector, buffer_sector)!=SUCCESS) return(failed("WriteNewNode: Failed to read sector"));
 
 		BYTE* inode_as_bytes = (BYTE*) malloc(sizeof(T_INODE));
-		INODE_to_BYTE(inode, inode_as_bytes);
+		INODE_DWORD_to_BYTE(inode, inode_as_bytes);
 
 		DWORD offset = (inode_idx % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
 		DWORD inode_initial_byte = sector + offset;
@@ -754,10 +751,10 @@ int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry){
 	return SUCCESS;
 }
 
-int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes){
+int DIRENTRY_DWORD_to_BYTE(DIRENT2* dentry, BYTE* bytes){
 	strncpy((char*)&(bytes[0]), (char*)&(dentry->name), (MAX_FILE_NAME_SIZE+1)*sizeof(char));
 	bytes[MAX_FILE_NAME_SIZE+1] = dentry->fileType;
-	strncpy((char*)&(bytes[MAX_FILE_NAME_SIZE+2]), (char*)to_BYTE(dentry->fileSize, sizeof(DWORD)), sizeof(DWORD));
+	strncpy((char*)&(bytes[MAX_FILE_NAME_SIZE+2]), (char*)DWORD_to_BYTE(dentry->fileSize, sizeof(DWORD)), sizeof(DWORD));
 	return SUCCESS;
 }
 

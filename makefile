@@ -34,6 +34,9 @@ $(BIN_DIR):
 shell:
 	gcc -o $(EXMP_DIR)/t2shell $(EXMP_DIR)/t2shell.c -L ./ -l$(name) -lm -Wall
 
+test_mbr:
+	gcc -o $(EXMP_DIR)/test_mbr $(EXMP_DIR)/test_mbr.c -L ./ -l$(name) -lm -Wall
+
 tar:
 		@cd .. && tar -zcvf 287677_207758_299902.tar.gz $(name)
 

@@ -1,45 +1,13 @@
-#include "../include/t2fs.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "../include/t2fs.h"
+#include "../include/apidisk.h"
+#include "../include/bitmap2.h"
+#include "../include/t2disk.h"
 
 #define SUCCESS 0
 
-
-
-void print(char a){
-  int i;
-  for (i = 0; i < 8; i++) {
-      printf("%d", !!((a << i) & 0x80));
-  }
-  printf("\n");
-}
-
-unsigned int to_int(unsigned char* bytes, int num_bytes) {
-	// Bytes stored in little endian format
-	unsigned int value = 0;
-	for (int i = 0; i < num_bytes ; ++i){
-    printf("Byte numero %d: \n",i);
-    print(bytes[i]);
-		value |= (unsigned int)(bytes[i] << 8*i) ;
-	}
-
-  return value;
-}
-unsigned char* to_BYTE(unsigned int value, int num_bytes) {
-
-	unsigned char* bytes = (unsigned char*)malloc(sizeof(num_bytes));
-  strncpy((char*)bytes, (char*)"\0", num_bytes );
-
-	for (int i = 0; i < num_bytes; ++i) {
-    printf("Byte numero %d: \n",i);
-    printf("Original: ");
-    print(bytes[i]);
-		bytes[i] = (value >> (8*i))&0xFF;
-    printf("Afterwards: ");
-    print(bytes[i]);
-	}
-	return bytes;
-}
 
 
 int main(int argc, char *argv[]) {
@@ -48,18 +16,15 @@ int main(int argc, char *argv[]) {
 
   unsigned char b[2] = {0x0F, 0x01};
 
-  print(b[0]);
-  print(b[1]);
+  FILE* disco = fopen("../t2fs_disk.dat", "rw");
 
-  printf("Bytes:\n%u, %u\n", b[0], b[1]);
-  unsigned int r = to_int(b, 2);
+  BYTE* mbr_sector = (BYTE*) malloc(SECTOR_SIZE);
+  read_sector(0, mbr_sector);
 
-  printf("%u", r);
+  for(j=0; j<SECTOR_SIZE; j++){
+    printf("%c",mbr_sector[j]);
+  }
 
-  unsigned char* bb = to_BYTE(pow(2,32)-1, 4);
-  unsigned int i= to_int(bb,4);
-
-printf("%u",i);
 
 
   return 0;
