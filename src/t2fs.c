@@ -51,6 +51,11 @@ typedef struct Mbr{
 	unsigned int num_partitions;
 	PARTITION* disk_partitions;
 } MBR;
+
+struct Open_file{
+	T_INODE* inode;
+	int current_pointer;
+};
 /* **************************************************************** */
 // Auxiliary functions
 int init();
@@ -69,14 +74,24 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 // GLOBAL VARIABLES
 MBR disk_mbr;
 T_SUPERBLOCK* partition_superblocks;
+int active_partition;
+
+// GLOBAL OPEN FILE VARIABLES
+struct Open_file open_files[MAX_FILES_OPEN];
+
 int root = -1 ;
 char* mount_path; // uma string "/{partition name}...." ?
+
 // duvidas:
 // como fazer a string de montagem dinamicamente em c
 
 T_INODE dummy_inode;
 
-FILE2 open_files[MAX_FILES_OPEN];
+// FILE2 open_files[MAX_FILES_OPEN];
+
+
+
+
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
 int fopen_count;
@@ -133,7 +148,9 @@ int init(){
 		return failed("Fu"); }
 	// Alloc a superblock per existing partition
 	partition_superblocks = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK)*disk_mbr.num_partitions);
-
+	//  Initialize open files
+	if(init_open_files() != SUCCESS) {
+		return failed("Failed to initialize open files");	}
 
 	t2fs_initialized = true;
 	return SUCCESS;
@@ -458,6 +475,130 @@ int write_new_inode(int partition, T_INODE* inode){
 	}
 	return SUCCESS;
 }
+/*-----------------------------------------------------------------------------*/
+unsigned char* get_block(int sector, int offset, int n)
+{
+	if(offset > SECTOR_SIZE)
+		return NULL;
+
+	unsigned char* buffer = (BYTE*)malloc(SECTOR_SIZE);
+	if(!read_sector(sector, buffer))
+		return NULL;
+
+	unsigned char* block = (BYTE*)malloc(n);
+	memcpy( &block, &buffer, n);
+
+	return block;
+}
+
+T_INODE* get_root(){
+
+	// get first inode (root dir)
+	DWORD sector = map_inode_to_sector(active_partition, 0);
+
+	//get first block at the inodes sector
+	unsigned char* block = get_block(sector, 0, sizeof(T_INODE));
+
+	T_INODE* root = (T_INODE*) &block;
+
+	return root;
+}
+
+T_INODE* search_root_for_filename(T_INODE* root, char* filename)
+{
+	return 0;
+}
+
+T_INODE* new_file(T_INODE* root, char* filename)
+{
+	//cria registro
+	T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
+	rec->TypeVal=0x01;
+
+	memset(rec->name, '\0', sizeof(rec->name));
+	strcpy(rec->name, filename);
+
+	// identificador de inode
+	rec->inodeNumber=0;
+
+	//adiciona registro em diretorio
+	//write2() ?
+
+	return NULL;
+}
+
+int set_file_open(T_INODE* f)
+{
+	
+	for(int i=0; i <= MAX_FILES_OPEN; i++)
+	{
+		if(open_files[i].inode==NULL)
+		{
+			open_files[i].inode = f;
+			open_files[i].current_pointer = 0;
+
+			return i;
+		}
+		
+	}
+
+	return -1;
+}
+
+int set_file_close(FILE2 handle)
+{
+	if(handle >= MAX_FILES_OPEN || handle < 0)
+		return FAILED;
+	
+
+	open_files[handle].inode = NULL;
+	open_files[handle].current_pointer = -1;
+
+	return SUCCESS;
+}
+
+int init_open_files()
+{
+	for(int i=0; i < MAX_FILES_OPEN; i++)
+	{
+		open_files[i].inode = NULL;
+		open_files[i].current_pointer = -1;
+	}
+	return SUCCESS;
+}
+
+int remove_file_content(T_INODE* inode)
+{
+	int superbloco_sector = disk_mbr.disk_partitions[active_partition].initial_sector;
+
+	if(openBitmap2(superbloco_sector) != SUCCESS)
+		return FAILED;
+
+	// // zera bits no bitmap de dados
+	// percorre ponteiros de indirecao dupla, traduz ponteiro de dados para posicao na posicao, zera posicoes no bitmap de dados
+	// percorre ponteiros de inodes, traduz ponteiro para posicao no bitmap de inodes, zera posicoes no bitmap de inodes
+	
+	// percorre ponteiros indiretos de indirecao simples
+
+	// percorre ponteiros de dados, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
+
+	return SUCCESS;
+}
+
+int remove_record(T_INODE* root, char* filename)
+{
+
+	int superbloco_sector = disk_mbr.disk_partitions[active_partition].initial_sector;
+
+	if(openBitmap2(superbloco_sector) != SUCCESS)
+		return FAILED;
+
+	// percorre blocos de dados do diretorio raiz buscando registro 
+
+	return SUCCESS;
+}
+
+/*-----------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
 Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
@@ -507,28 +648,57 @@ Função:	Função usada para criar um novo arquivo no disco e abrí-lo,
 		assumirá um tamanho de zero bytes.
 -----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename) {
-	return -1;
+	T_INODE* root = get_root();
+
+	T_INODE* f = search_root_for_filename(root, filename);
+
+	if(f != NULL)
+		return FAILED;
+	
+	T_INODE* f2 = new_file(root, filename);
+
+	FILE2 handle = set_file_open(f2);
+	return handle;
 }
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para remover (apagar) um arquivo do disco.
 -----------------------------------------------------------------------------*/
 int delete2 (char *filename) {
-	return -1;
+	T_INODE* root = get_root();
+
+	T_INODE* f = search_root_for_filename(root, filename);
+
+	remove_file_content(f);
+
+	remove_record(root, filename);
+
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------
 Função:	Função que abre um arquivo existente no disco.
 -----------------------------------------------------------------------------*/
 FILE2 open2 (char *filename) {
-	return -1;
+
+	T_INODE* root = get_root();
+	if(root==NULL)
+		return FAILED;
+
+	T_INODE* f = search_root_for_filename(root, filename);
+	if(f==NULL)
+		return FAILED;
+
+
+	FILE2 handle = set_file_open(f);
+	return handle;
 }
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para fechar um arquivo.
 -----------------------------------------------------------------------------*/
 int close2 (FILE2 handle) {
-	return -1;
+	return set_file_close(handle);;
 }
 
 /*-----------------------------------------------------------------------------
