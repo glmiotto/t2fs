@@ -67,6 +67,11 @@ typedef struct Mbr{
 } MBR;
 
 
+struct Open_file{
+	T_INODE* inode;
+	int current_pointer;
+};
+
 int init();
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
 int initialize_superblock(int partition, int sectors_per_block);

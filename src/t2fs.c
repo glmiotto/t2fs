@@ -216,20 +216,38 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"... --> nope
 	sb->version = 0x7E32; //ou 0x327E  --> nope
 	sb->superblockSize = 1; // ou 0x01 0x00  --> nope
-	printf("SECTOR PER BLOCO %d", sectors_per_block);
+	printf("SECTOR PER BLOCO %d\n", sectors_per_block);
 	sb->blockSize = (WORD)sectors_per_block;
 
-	sb->diskSize = (DWORD)(num_sectors / (DWORD)sectors_per_block); //Number of logical blocks in formatted disk.
+	sb->diskSize =(num_sectors /sectors_per_block); //Number of logical blocks in formatted disk.
+	printf("num sectors %d\n", num_sectors);
+	printf("disksize %d\n", num_sectors/sectors_per_block);
+
+
+
 	// bitmap has "num_blocks_formatted" bits
 	// freeBlocksBitmapSize is the number of blocks needed to store the bitmap.
 	// therefore: "diskSize in blocks" bits, divided by 8 to get bytes.
 	// bytes divided by ( number of bytes per sector * number of sectors per block).
-	sb->freeBlocksBitmapSize = (WORD)(sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block));
+
+	// TODO: revisar isso
+	sb->freeBlocksBitmapSize =(sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block));
 	// 10% of the partition blocks are reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize)); // qty in blocks
-	sb->freeInodeBitmapSize = (WORD)(sb->inodeAreaSize / 8 / (disk_mbr.sector_size * sectors_per_block));
+	sb->inodeAreaSize = (ceil(0.10*sb->diskSize)); // qty in blocks
+	sb->freeInodeBitmapSize =
+		ceil(
+			sb->inodeAreaSize*(disk_mbr.sector_size * sectors_per_block)
+			/ sizeof(T_INODE)
+			/ 8
+			/ (disk_mbr.sector_size * sectors_per_block));
+	printf("DISK SIZE IN BLOCKS %d\n", sb->diskSize);
+
+	printf("frEE BLOCKS BITMAP SIZE %d\n", sb->freeBlocksBitmapSize);
+	printf("frEE INODE BITMAP SIZE %d\n", sb->freeInodeBitmapSize);
+	printf("iNODE AREA SIZE %d\n", sb->inodeAreaSize);
 
 	calculate_checksum(sb);
+	printf("CHECKSUM %u\n", sb->Checksum);
 	// Superblock filled, needs to be saved into disk
 	// at sector 0 of its partition (first sector)
 	// "all superblock values are little-endian"
