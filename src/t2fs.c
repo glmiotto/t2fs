@@ -19,6 +19,7 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 MBR 					disk_mbr;
 T_SUPERBLOCK* partition_superblocks;
 PARTITION*		mt_part;
+T_DIRECTORY*	root;
 T_FOPEN 			open_files[MAX_FILES_OPEN];
 
 DWORD 				partition;
@@ -73,26 +74,23 @@ BYTE* WORD_to_BYTE(WORD value, int num_bytes) {
 
 
 int init(){
-
 	if (t2fs_initialized) return SUCCESS;
 
 	// Reads first disk sector with raw MBR data
 	BYTE* master_sector = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
 	if(read_sector(SECTOR_DISK_MBR, master_sector) != SUCCESS) {
 		return failed("Failed to read MBR"); }
+
 	// Read disk master boot record into application space
-	if(read_MBR_from_disk(master_sector, &disk_mbr) != SUCCESS) {
+	if(load_mbr(master_sector, &disk_mbr) != SUCCESS) {
 		return failed("Fu"); }
-	// Alloc a superblock per existing partition
-	partition_superblocks = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK)*disk_mbr.num_partitions);
+
 	//  Initialize open files
 	if(init_open_files() != SUCCESS) {
 		return failed("Failed to initialize open files");	}
 
-	current_entry = (DWORD*)malloc(sizeof(DWORD)*disk_mbr.num_partitions);
-	for (int i=0; i < disk_mbr.num_partitions; i++)
-		current_entry[i] = 0;
-
+	root = (T_DIRECTORY*) malloc(sizeof(T_DIRECTORY));
+	root->current_entry = DEFAULT_ENTRY;
 	t2fs_initialized = true;
 	return SUCCESS;
 }
@@ -129,7 +127,7 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	return SUCCESS;
 }
 
-int read_superblock_from_disk(MBR* mbr, T_SUPERBLOCK* sb) {
+int load_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 
 	printf("Initializing...\n");
 	init();
@@ -194,17 +192,15 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	// Gets pointer to superblock for legibility
 	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
 
-	strncpy(sb->id, "T2FS", 4); //ou talvez "SF2T"... --> nope
-	sb->version = 0x7E32; //ou 0x327E  --> nope
-	sb->superblockSize = 1; // ou 0x01 0x00  --> nope
+	strncpy(sb->id, "T2FS", 4);
+	sb->version = 0x7E32;
+	sb->superblockSize = 1;
 	printf("SECTOR PER BLOCO %d\n", sectors_per_block);
 	sb->blockSize = (WORD)sectors_per_block;
 
 	sb->diskSize =(num_sectors /sectors_per_block); //Number of logical blocks in formatted disk.
 	printf("num sectors %d\n", num_sectors);
 	printf("disksize %d\n", num_sectors/sectors_per_block);
-
-
 
 	// bitmap has "num_blocks_formatted" bits
 	// freeBlocksBitmapSize is the number of blocks needed to store the bitmap.
@@ -216,10 +212,8 @@ int initialize_superblock(int partition, int sectors_per_block) {
 	// 10% of the partition blocks are reserved to inodes (ROUND UP)
 	sb->inodeAreaSize = (ceil(0.10*sb->diskSize)); // qty in blocks
 	sb->freeInodeBitmapSize =
-		ceil(
-			sb->inodeAreaSize*(disk_mbr.sector_size * sectors_per_block)
-			/ sizeof(T_INODE)
-			/ 8
+		ceil(sb->inodeAreaSize*(disk_mbr.sector_size * sectors_per_block)
+			/ (float)(sizeof(T_INODE) * 8)
 			/ (disk_mbr.sector_size * sectors_per_block));
 	printf("DISK SIZE IN BLOCKS %d\n", sb->diskSize);
 
@@ -229,21 +223,6 @@ int initialize_superblock(int partition, int sectors_per_block) {
 
 	calculate_checksum(sb);
 	printf("CHECKSUM %u\n", sb->Checksum);
-	// Superblock filled, needs to be saved into disk
-	// at sector 0 of its partition (first sector)
-	// "all superblock values are little-endian"
-	// so theres probably something wrong in declaration
-	//write_sector(first_sector, (BYTE*)sb);
-
-	// Realmente nao sei se isso vai dar certo
-	// Se nao der: precisa uma funcao dedicada para passar toda
-	// a estrutura superbloco para disco, campo a campo,
-	// em formato unsigned char / BYTE little endian. fun
-
-	// (edit) nao foi tao dificil actually. implemented function that
-	// converts everything to little endian BYTE
-
-	// edit 2: nao precisava converter forçadamente pq o C faz isso automático
 	write_superblock_to_partition(partition);
 	return SUCCESS;
 }
@@ -273,7 +252,7 @@ int write_superblock_to_partition(int partition) {
 	else return SUCCESS;
 }
 
-int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
+int load_mbr(BYTE* master_sector, MBR* mbr) {
 	// reads the logical master boot record sector into a special structure of type MBR
 	mbr->version = to_int(&(master_sector[0]), 2);
 	mbr->sector_size = to_int(&(master_sector[2]), 2);
@@ -284,7 +263,7 @@ int read_MBR_from_disk(BYTE* master_sector, MBR* mbr) {
 		int j = 8 + i*32; //32 bytes per partition in the boot record
 		mbr->disk_partitions[i].initial_sector = to_int(&(master_sector[j]),4);
 		mbr->disk_partitions[i].final_sector = to_int(&(master_sector[j+4]),4);
-		// String possivelmente tem que inverter a ordem
+		// TODO String possivelmente tem que inverter a ordem
 		strncpy((char*)mbr->disk_partitions[i].partition_name, (char*)&(master_sector[j+8]), 24);
 	}
 return SUCCESS;
@@ -645,6 +624,21 @@ int format2(int partition, int sectors_per_block) {
 Função:	Monta a partição indicada por "partition" no diretório raiz
 -----------------------------------------------------------------------------*/
 int mount(int partition) {
+	init();
+	if (mt_part != NULL && mt_part->id == partition){
+		return(failed("Partition already mounted"));
+	}
+	if(mt_part != NULL && mt_part->id != partition){
+		return(failed("Unmount current partition before mounting another"));
+	}
+	if ((partition < 0) || (partition >= disk_mbr->num_partitions))
+		return(failed("Partition invalid."));
+
+	mt_part->id = partition;
+	mt_part->mounted = true;
+	load_superblock(disk_mbr, mt_part->superblock);
+
+	// TODO resto
 	return -1;
 }
 
@@ -652,6 +646,8 @@ int mount(int partition) {
 Função:	Desmonta a partição atualmente montada, liberando o ponto de montagem.
 -----------------------------------------------------------------------------*/
 int unmount(void) {
+
+	
 	return -1;
 }
 

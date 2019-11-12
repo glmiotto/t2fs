@@ -46,6 +46,7 @@ typedef struct t2fs_record 		 	T_RECORD;
 #define MAX_FILE_NAME_SIZE 255
 #define MAX_FILES_OPEN 10
 
+#define DEFAULT_ENTRY 0
 #define SECTOR_DISK_MBR 0
 #define SECTOR_PARTITION_SUPERBLOCK 0
 #define error() printf("Error thrown at %s:%s:%d\n",FILE,__FUNCTION__,LINE);
@@ -77,6 +78,7 @@ typedef struct Partition{
 	DWORD    final_sector;
 	BYTE     partition_name[24];
   // aqui acabam as infos originais de MBR pra particao
+	WORD 			partition_index;
   T_SUPERBLOCK* superblock;
   DWORD         bitmap_inodes_sector;
   DWORD         bitmap_data_sector;
@@ -94,8 +96,8 @@ typedef struct Mbr{
 } MBR;
 
 int init();
-int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
-int read_superblock_from_disk(MBR* mbr, T_SUPERBLOCK* sb);
+int load_mbr(BYTE* master_sector, MBR* mbr);
+int load_superblock(MBR* mbr, T_SUPERBLOCK* sb);
 int initialize_superblock(int partition, int sectors_per_block);
 int write_superblock_to_partition(int partition);
 void calculate_checksum(T_SUPERBLOCK* sb);
