@@ -5,7 +5,6 @@
 
 #include "t2fs.h"
 
-typedef int boolean;
 #define false 0
 #define true (!false)
 

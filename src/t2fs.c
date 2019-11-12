@@ -15,80 +15,61 @@ int failed(char* msg) {printf("%s\n", msg);return FAILED;}
 void print(char* msg) {printf("%s\n", msg);}
 void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
-
 // GLOBAL VARIABLES
-MBR disk_mbr;
+MBR 					disk_mbr;
 T_SUPERBLOCK* partition_superblocks;
+PARTITION*		mt_part;
+T_FOPEN 			open_files[MAX_FILES_OPEN];
 
-// GLOBAL OPEN FILE VARIABLES
-struct Open_file open_files[MAX_FILES_OPEN];
-
-DWORD* current_entry;
-DWORD partition;
-int root = -1 ;
-char* mount_path; // uma string "/{partition name}...." ?
-
-// duvidas:
-// como fazer a string de montagem dinamicamente em c
-
-T_INODE dummy_inode;
-
-// FILE2 open_files[MAX_FILES_OPEN];
-
-
-
+DWORD 				partition;
+T_INODE 			dummy_inode;
+DWORD*     current_entry;
 
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
 int fopen_count;
 boolean t2fs_initialized = false;
 
-// OBS o .c original incluia nas assinaturas uma entrada DIR2
-// que assumo equivaler a um typedef int para uma handle de dir
-// mas o .h nao tem isso e nosso trabalho só usa diretorio raiz,
-// entao tirei esse argumento aqui do .c em opendir readdir e closedir
-
 /* **************************************************************** */
 
-DWORD to_int(BYTE* bytes, int num_bytes) {
+DWORD to_int(BYTE* chars, int num_bytes) {
 	// Bytes stored in little endian format
 	// Least significant byte comes first on the lowest index, highest comes last
 	DWORD value = 0;
 	for (int i = 0; i < num_bytes ; ++i){
-		value |= (DWORD)(bytes[i] << 8*i) ;
+		value |= (DWORD)(chars[i] << 8*i) ;
 	}
 	return value;
 }
 
-DWORD new_to_int(BYTE* bytes, int num_bytes) {
+DWORD new_to_int(BYTE* chars, int num_bytes) {
 	// doesnt flip the endianness because C do dat
 	DWORD value = 0;
 	for (int i =0; i<num_bytes; i++) {
 		value =0 ;
-		value |= (DWORD)(bytes[i] << 8*(num_bytes-1-i));
+		value |= (DWORD)(chars[i] << 8*(num_bytes-1-i));
 	}
 	return value;
 }
 
 BYTE* DWORD_to_BYTE(DWORD value, int num_bytes) {
 
-	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
-	strncpy((char*)bytes, (char*)"\0", num_bytes );
+	BYTE* chars = (BYTE*)malloc(num_bytes*sizeof(BYTE));
+	strncpy((char*)chars, (char*)"\0", num_bytes );
 	for (int i = 0; i < num_bytes; ++i) {
-		bytes[i] = (value >> (8*i))&0xFF;
+		chars[i] = (value >> (8*i))&0xFF;
 	}
-	return bytes;
+	return chars;
 }
 BYTE* WORD_to_BYTE(WORD value, int num_bytes) {
 
-	BYTE* bytes = (BYTE*)malloc(num_bytes*sizeof(BYTE));
-	strncpy((char*)bytes, (char*)"\0", num_bytes );
+	BYTE* chars = (BYTE*)malloc(num_bytes*sizeof(BYTE));
+	strncpy((char*)chars, (char*)"\0", num_bytes );
 	for (int i = 0; i < num_bytes; ++i) {
-		bytes[i] = (value >> (8*i))&0xFF;
+		chars[i] = (value >> (8*i))&0xFF;
 	}
-	return bytes;
+	return chars;
 }
-
 
 
 int init(){
@@ -443,7 +424,7 @@ int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode) {
 	return SUCCESS;
 }
 
-int INODE_DWORD_to_BYTE(T_INODE* inode, BYTE* bytes) {
+int INODE_to_BYTE(T_INODE* inode, BYTE* bytes) {
 
 	// Converts inode DWORDs to unsigned char (BYTE) then copies the data to a
 	// BYTE array. Probably not very useful since it doesnt write to any sector
@@ -491,7 +472,7 @@ int write_new_inode(int partition, T_INODE* inode){
 		if(read_sector(sector, buffer_sector)!=SUCCESS) return(failed("WriteNewNode: Failed to read sector"));
 
 		BYTE* inode_as_bytes = (BYTE*) malloc(sizeof(T_INODE));
-		INODE_DWORD_to_BYTE(inode, inode_as_bytes);
+		INODE_to_BYTE(inode, inode_as_bytes);
 
 		DWORD offset = (inode_idx % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
 		DWORD inode_initial_byte = sector + offset;
@@ -756,8 +737,16 @@ Função:	Função que abre um diretório existente no disco.
 -----------------------------------------------------------------------------*/
 int opendir2 (void) {
 	if (init() != SUCCESS) return(failed("OpenDir: failed to initialize"));
-	// testar se ta tudo montadinho
-	current_entry[partition] = 0;
+
+	if(partition < 0) return(failed("No partition mounted yet."));
+
+	// Caso contrário usar o valor na variável global, acessar o seu root,
+	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
+	// que guarde globalmente tudo que precisamos de um diretório.
+	// Se um diretório ja aberto, dizer que já tem aberto/mandar fechar o atual
+	// (embora seja o mesmo).
+	// Setar atual entrada de leitura para 0 para o readdir.
+	// current_entry[partition] = 0;
 	return SUCCESS;
 }
 
@@ -769,7 +758,7 @@ int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry){
 	return SUCCESS;
 }
 
-int DIRENTRY_DWORD_to_BYTE(DIRENT2* dentry, BYTE* bytes){
+int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes){
 	strncpy((char*)&(bytes[0]), (char*)&(dentry->name), (MAX_FILE_NAME_SIZE+1)*sizeof(char));
 	bytes[MAX_FILE_NAME_SIZE+1] = dentry->fileType;
 	strncpy((char*)&(bytes[MAX_FILE_NAME_SIZE+2]), (char*)DWORD_to_BYTE(dentry->fileSize, sizeof(DWORD)), sizeof(DWORD));
@@ -890,6 +879,12 @@ Função:	Função usada para ler as entradas de um diretório.
 int readdir2 (DIRENT2 *dentry) {
 	if (init() != SUCCESS) return(failed("ReadDir: failed to initialize"));
 
+	if (partition < 0 ) return(failed("ReadDir failed: no partition mounted yet."));
+
+	// if mounted, check if directory open. if not, open and read the first index.
+	// otherwise read current entry IF VALID or the next valid one.
+	// if end of directory reached, return a code.
+
 	// each call to readdir returns a single entry.
 	// then, ups the internal counter to the next entry for the next call.
 	// return error code if:
@@ -931,9 +926,13 @@ Função:	Função usada para fechar um diretório.
 -----------------------------------------------------------------------------*/
 int closedir2 (void) {
 	if (init() != SUCCESS) return(failed("CloseDir: failed to initialize"));
-	// checar se o dir ta aberto
-	// toggle como closed?
-	// la fin
+
+	/*
+	Checa se está open em ROOT_DIRECTORY
+	Fecha arquivos abertos (acho)
+	Desaloca a estrutura temporária em que seus dados estão guardados,
+	se não for um ponteiro.
+	*/
 	return -1;
 }
 

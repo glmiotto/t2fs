@@ -5,6 +5,7 @@
 
 
 typedef int FILE2;
+typedef int boolean;
 
 typedef unsigned char BYTE;
 typedef unsigned short int WORD;
@@ -52,35 +53,75 @@ typedef struct t2fs_record 		 	T_RECORD;
 
 /* **************************************************************** */
 
+
+typedef struct Open_file{
+  WORD      handle;
+  DWORD     inode_index;
+  DWORD     current_pointer;
+	T_INODE*  inode;
+} T_FOPEN;
+
+typedef struct Directory{
+  boolean   open;
+  T_RECORD* current_entry;
+  DWORD     valid_entries;
+  DWORD     max_entries;
+  DWORD     inode_index;
+  T_INODE*  inode;
+  T_FOPEN*  open_files;
+  DWORD     num_open_files;
+} T_DIRECTORY;
+
 typedef struct Partition{
-	DWORD initial_sector;
-	DWORD final_sector;
-	BYTE partition_name[24];
+	DWORD    initial_sector;
+	DWORD    final_sector;
+	BYTE     partition_name[24];
+  // aqui acabam as infos originais de MBR pra particao
+  T_SUPERBLOCK* superblock;
+  DWORD         bitmap_inodes_sector;
+  DWORD         bitmap_data_sector;
+  T_DIRECTORY*  root;
+  boolean       mounted;
+
 } PARTITION;
 
 typedef struct Mbr{
-	DWORD version;
-	DWORD sector_size;
-	DWORD initial_byte;
-	DWORD num_partitions;
+	DWORD      version;
+	DWORD      sector_size;
+	DWORD      initial_byte;
+	DWORD      num_partitions;
 	PARTITION* disk_partitions;
 } MBR;
 
-
-struct Open_file{
-	T_INODE* inode;
-	int current_pointer;
-};
-
 int init();
 int read_MBR_from_disk(BYTE* master_sector, MBR* mbr);
+int read_superblock_from_disk(MBR* mbr, T_SUPERBLOCK* sb);
 int initialize_superblock(int partition, int sectors_per_block);
 int write_superblock_to_partition(int partition);
 void calculate_checksum(T_SUPERBLOCK* sb);
 int init_open_files();
 // Conversion from/to little-endian unsigned chars
-DWORD to_int(BYTE* bytes, int num_bytes);
-BYTE* to_BYTE(DWORD value, int num_bytes);
+DWORD to_int(BYTE* chars, int num_bytes);
+BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);
+BYTE* WORD_to_BYTE(WORD value, int num_bytes);
+// Conversion disk<->logical structures
+int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb);
+int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode);
+int INODE_to_BYTE(T_INODE* inode, BYTE* bytes);
+int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
+int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
+
+DWORD map_inode_to_sector(int partition, int inode_index);
+DWORD map_block_to_sector(int partition, int block_index);
+int max_pointers_in_block(int partition);
+int max_entries_in_block(int partition);
+int max_dentries(int partition);
+
+int access_inode(int partition, int inode_index, T_INODE* return_inode);
+int find_entry(int partition, int entry_block, char* filename);
+int sweep_directory_by_index(int partition, int index, DIRENT2* dentry);
+int sweep_directory_by_name(int partition, char* filename, DIRENT2* dentry);
+
 /* **************************************************************** */
 
 /*-----------------------------------------------------------------------------
