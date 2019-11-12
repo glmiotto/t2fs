@@ -17,14 +17,14 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
 // GLOBAL VARIABLES
 MBR 					disk_mbr;
-T_SUPERBLOCK* partition_superblocks;
-PARTITION*		mt_part;
-T_DIRECTORY*	root;
-T_FOPEN 			open_files[MAX_FILES_OPEN];
-
-DWORD 				partition;
+BOLA_DA_VEZ*	mt_part;
 T_INODE 			dummy_inode;
+
+// old variables to be removed when compiling errors stop
+DWORD 				partition;
 DWORD*     current_entry;
+T_FOPEN 			open_files[MAX_FILES_OPEN];
+T_SUPERBLOCK* partition_superblocks;
 
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
@@ -89,8 +89,7 @@ int init(){
 	if(init_open_files() != SUCCESS) {
 		return failed("Failed to initialize open files");	}
 
-	root = (T_DIRECTORY*) malloc(sizeof(T_DIRECTORY));
-	root->current_entry = DEFAULT_ENTRY;
+	mt_part = NULL;
 	t2fs_initialized = true;
 	return SUCCESS;
 }
@@ -263,7 +262,6 @@ int load_mbr(BYTE* master_sector, MBR* mbr) {
 		int j = 8 + i*32; //32 bytes per partition in the boot record
 		mbr->disk_partitions[i].initial_sector = to_int(&(master_sector[j]),4);
 		mbr->disk_partitions[i].final_sector = to_int(&(master_sector[j+4]),4);
-		// TODO String possivelmente tem que inverter a ordem
 		strncpy((char*)mbr->disk_partitions[i].partition_name, (char*)&(master_sector[j+8]), 24);
 	}
 return SUCCESS;
@@ -631,15 +629,18 @@ int mount(int partition) {
 	if(mt_part != NULL && mt_part->id != partition){
 		return(failed("Unmount current partition before mounting another"));
 	}
-	if ((partition < 0) || (partition >= disk_mbr->num_partitions))
+	if ((partition < 0) || (partition >= disk_mbr.num_partitions))
 		return(failed("Partition invalid."));
 
+	mt_part = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
 	mt_part->id = partition;
-	mt_part->mounted = true;
-	load_superblock(disk_mbr, mt_part->superblock);
-
-	// TODO resto
-	return -1;
+	mt_part->partition_mbr = &(disk_mbr.disk_partitions[partition]);
+	load_superblock(&disk_mbr, mt_part->superblock);
+	mt_part->inodes_init_sector = map_inode_to_sector(partition,0);
+	mt_part->data_init_sector = map_block_to_sector(partition,0);
+	mt_part->root = NULL;
+	// TODO: REVISAR
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------
@@ -647,8 +648,15 @@ Função:	Desmonta a partição atualmente montada, liberando o ponto de montage
 -----------------------------------------------------------------------------*/
 int unmount(void) {
 
-	
-	return -1;
+	if(mt_part == NULL){
+		return(failed("No partition to unmount."));
+	}
+	if(closedir2() != SUCCESS){
+		return(failed("Unmount failed: could not close root dir."));
+	}
+	free(mt_part->superblock);
+	free(mt_part);
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------
@@ -945,3 +953,4 @@ Função:	Função usada para criar um caminho alternativo (hardlink)
 int hln2(char *linkname, char *filename) {
 	return -1;
 }
+

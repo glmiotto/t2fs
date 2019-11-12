@@ -77,15 +77,16 @@ typedef struct Partition{
 	DWORD    initial_sector;
 	DWORD    final_sector;
 	BYTE     partition_name[24];
-  // aqui acabam as infos originais de MBR pra particao
-	WORD 			partition_index;
-  T_SUPERBLOCK* superblock;
-  DWORD         bitmap_inodes_sector;
-  DWORD         bitmap_data_sector;
-  T_DIRECTORY*  root;
-  boolean       mounted;
-
 } PARTITION;
+
+typedef struct WorkingPartition{
+	DWORD 				id;
+	PARTITION*    partition_mbr;
+  T_SUPERBLOCK* superblock;
+  DWORD         inodes_init_sector;
+  DWORD         data_init_sector;
+  T_DIRECTORY*  root;
+} BOLA_DA_VEZ;
 
 typedef struct Mbr{
 	DWORD      version;
@@ -332,3 +333,4 @@ int hln2(char *linkname, char *filename);
 
 
 #endif
+

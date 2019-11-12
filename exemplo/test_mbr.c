@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   }
   MBR* mbr = (MBR*)malloc(sizeof(MBR));
 
-  read_MBR_from_disk(mbr_sector, mbr);
+  load_mbr(mbr_sector, mbr);
 
   printf("\nVersion: %d\n", mbr->version);
   printf("Sector size in bytes: %d\n", mbr->sector_size);
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
   }
   T_SUPERBLOCK* sb = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK));
-  read_superblock_from_disk(mbr, sb);
+  load_superblock(mbr, sb);
   printf("Id: %s\n",sb->id);
   printf("Version: %d\n",sb->version);
   printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
@@ -47,3 +47,4 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
