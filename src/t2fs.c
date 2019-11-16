@@ -651,11 +651,12 @@ int remove_file_content(T_INODE* inode)
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
 
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	// T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
 	// Add offset to where the partition starts in the disk
-	int start_inode_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	int start_inode_sector = mounted->mbr_data->initial_sector;
 	// Add offset to where in the partition the inodes start
 	start_inode_sector += start_block * sb->blockSize;
 
