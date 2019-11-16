@@ -64,11 +64,12 @@ typedef struct Open_file{
 
 typedef struct Directory{
   boolean   open;
+	T_INODE*  inode;
+	DWORD     inode_index;
   T_RECORD* current_entry;
-  DWORD     valid_entries;
+	DWORD 		current_count;
+  DWORD     total_entries;
   DWORD     max_entries;
-  DWORD     inode_index;
-  T_INODE*  inode;
   T_FOPEN*  open_files;
   DWORD     num_open_files;
 } T_DIRECTORY;
@@ -81,10 +82,10 @@ typedef struct Partition{
 
 typedef struct WorkingPartition{
 	DWORD 				id;
-	PARTITION*    partition_mbr;
+	PARTITION*    mbr_data;
   T_SUPERBLOCK* superblock;
-  DWORD         inodes_init_sector;
-  DWORD         data_init_sector;
+  DWORD         fst_inode_sector;
+  DWORD         fst_data_sector;
   T_DIRECTORY*  root;
 } BOLA_DA_VEZ;
 
@@ -100,7 +101,7 @@ int init();
 int load_mbr(BYTE* master_sector, MBR* mbr);
 int load_superblock(MBR* mbr, T_SUPERBLOCK* sb);
 int initialize_superblock(int partition, int sectors_per_block);
-int write_superblock_to_partition(int partition);
+int save_superblock();
 void calculate_checksum(T_SUPERBLOCK* sb);
 int init_open_files();
 // Conversion from/to little-endian unsigned chars
@@ -114,16 +115,16 @@ int INODE_to_BYTE(T_INODE* inode, BYTE* bytes);
 int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
 int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
 
-DWORD map_inode_to_sector(int partition, int inode_index);
-DWORD map_block_to_sector(int partition, int block_index);
-int max_pointers_in_block(int partition);
-int max_entries_in_block(int partition);
-int max_dentries(int partition);
+DWORD map_inode_to_sector(int inode_index);
+DWORD map_block_to_sector(int block_index);
+int max_pointers_in_block();
+int max_entries_in_block();
+int max_dentries();
 
-int access_inode(int partition, int inode_index, T_INODE* return_inode);
+int access_inode(int inode_index, T_INODE* return_inode);
 int find_entry(int partition, int entry_block, char* filename);
-int sweep_directory_by_index(int partition, int index, DIRENT2* dentry);
-int sweep_directory_by_name(int partition, char* filename, DIRENT2* dentry);
+int sweep_root_by_index(int index, DIRENT2* dentry);
+int sweep_root_by_name(char* filename, DIRENT2* dentry);
 
 /* **************************************************************** */
 
@@ -333,4 +334,3 @@ int hln2(char *linkname, char *filename);
 
 
 #endif
-

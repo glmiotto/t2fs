@@ -17,14 +17,11 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
 // GLOBAL VARIABLES
 MBR 					disk_mbr;
-BOLA_DA_VEZ*		mt_part;
+BOLA_DA_VEZ*	mounted;
 T_INODE 			dummy_inode;
 
 // old variables to be removed when compiling errors stop
-DWORD 				partition;
-DWORD*     current_entry;
 T_FOPEN 			open_files[MAX_FILES_OPEN];
-T_SUPERBLOCK* partition_superblocks;
 
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
@@ -72,6 +69,18 @@ BYTE* WORD_to_BYTE(WORD value, int num_bytes) {
 	return chars;
 }
 
+boolean is_mounted(void){
+	if (mounted == NULL)
+		return false;
+	else return true;
+}
+
+int get_mounted(void) {
+	if(is_mounted())
+		return mounted->id;
+	else return FAILED;
+}
+
 
 int init(){
 	if (t2fs_initialized) return SUCCESS;
@@ -89,15 +98,15 @@ int init(){
 	if(init_open_files() != SUCCESS) {
 		return failed("Failed to initialize open files");	}
 
-	mt_part = NULL;
+	mounted = NULL;
 	t2fs_initialized = true;
 	return SUCCESS;
 }
 
-void report_superblock(int partition ){
+void report_superblock(){
 	printf("********************************\n");
-	printf("Superblock info for partition %d\n", partition);
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	printf("Superblock info for partition %d\n", mounted->id);
+	T_SUPERBLOCK* sb = mounted->superblock;
 	printf("Id: %s\n",sb->id);
 	printf("Version: %d\n",sb->version);
 	printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
@@ -126,16 +135,16 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	return SUCCESS;
 }
 
-int load_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
+int report_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 
 	printf("Initializing...\n");
 	init();
 	printf("Initialized.\n");
 
-	format2(0, 256);
+	format2(0, 4);
 	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
 	printf("Reading sector from disk...\n");
-	int j = 0;
+	int j = get_mounted();
 	printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
 	printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
 	printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
@@ -150,20 +159,20 @@ int load_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 }
 
 
-DWORD first_inode_sector(int partition){
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+DWORD first_inode_sector(){
+	T_SUPERBLOCK* sb = mounted->superblock;
 
-	DWORD sector = disk_mbr.disk_partitions[partition].initial_sector;
+	DWORD sector = mounted->mbr_data->initial_sector;
 	sector += sb->superblockSize * sb->blockSize;
 	sector += sb->freeInodeBitmapSize * sb->blockSize;
 	sector += sb->freeBlocksBitmapSize * sb->blockSize;
 
 	return sector;
 }
-DWORD first_data_sector(int partition){
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+DWORD first_data_sector(){
+	T_SUPERBLOCK* sb = mounted->superblock;
 
-	DWORD sector = first_inode_sector(partition);
+	DWORD sector = first_inode_sector();
 	sector += sb->inodeAreaSize * sb->blockSize;
 	return sector;
 }
@@ -185,11 +194,11 @@ int initialize_superblock(int partition, int sectors_per_block) {
 
 	if (partition >= disk_mbr.num_partitions) return failed("Invalid partition bye");
 
-	int first_sector = disk_mbr.disk_partitions[partition].initial_sector;
-	int last_sector  = disk_mbr.disk_partitions[partition].final_sector;
+	int first_sector = mounted->mbr_data->initial_sector;
+	int last_sector  = mounted->mbr_data->final_sector;
 	int num_sectors = last_sector - first_sector + 1;
 	// Gets pointer to superblock for legibility
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	strncpy(sb->id, "T2FS", 4);
 	sb->version = 0x7E32;
@@ -222,14 +231,14 @@ int initialize_superblock(int partition, int sectors_per_block) {
 
 	calculate_checksum(sb);
 	printf("CHECKSUM %u\n", sb->Checksum);
-	write_superblock_to_partition(partition);
+	writeback_superblock();
 	return SUCCESS;
 }
 
-int write_superblock_to_partition(int partition) {
+int writeback_superblock() {
 	BYTE* output = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
 	// Gets pointer to application-space superblock
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	output[0] = sb->id[3];
 	output[1] = sb->id[2];
@@ -244,8 +253,7 @@ int write_superblock_to_partition(int partition) {
 	strncpy((char*)&(output[16]),(char*)DWORD_to_BYTE(sb->diskSize, 4),4);
 	strncpy((char*)&(output[20]),(char*)DWORD_to_BYTE(sb->Checksum, 4),4);
 
-	if (write_sector(
-		disk_mbr.disk_partitions[partition].initial_sector, output) != SUCCESS) {
+	if (write_sector(mounted->mbr_data->initial_sector, output) != SUCCESS) {
 		return failed("Failed to write superblock to partition sector");
 	}
 	else return SUCCESS;
@@ -259,7 +267,7 @@ int load_mbr(BYTE* master_sector, MBR* mbr) {
 	mbr->num_partitions = to_int(&(master_sector[6]),2);
 	mbr->disk_partitions = (PARTITION*)malloc(sizeof(PARTITION)*mbr->num_partitions);
 	for(int i = 0; i < mbr->num_partitions; ++i){
-		int j = 8 + i*32; //32 bytes per partition in the boot record
+		int j = 8 + i*sizeof(PARTITION); //32 bytes per partition in the boot record
 		mbr->disk_partitions[i].initial_sector = to_int(&(master_sector[j]),4);
 		mbr->disk_partitions[i].final_sector = to_int(&(master_sector[j+4]),4);
 		strncpy((char*)mbr->disk_partitions[i].partition_name, (char*)&(master_sector[j+8]), 24);
@@ -290,9 +298,9 @@ void calculate_checksum(T_SUPERBLOCK* sb) {
 	sb->Checksum = ~checksum;
 }
 
-int initialize_inode_area(int partition){
+int initialize_inode_area(){
 	// Helpful pointer
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 	// Starting block:
 	// First partition block is superblock
 	// Then come bitmaps (size given in block)
@@ -303,7 +311,7 @@ int initialize_inode_area(int partition){
 	// Calculate first inodes block within the partition
 	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
 	// Add offset to where the partition starts in the disk
-	int start_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	int start_sector = mounted->mbr_data->initial_sector;
 	// Add offset to where in the partition the inodes start
 	start_sector += start_block * sb->blockSize;
 
@@ -331,14 +339,14 @@ int initialize_inode_area(int partition){
 	return SUCCESS;
 }
 
-int initialize_bitmaps(int partition){
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+int initialize_bitmaps(){
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	// Allocates both Bitmaps (block status and inode status)
 	// Input: disk sector where the partition's superblock is
 	// (aka, the first sector in a formatted partition)
 	// Output: success/error code
-	if(openBitmap2(disk_mbr.disk_partitions[partition].initial_sector) != SUCCESS){
+	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS){
 		// provavelmente desalocar alguma coisa
 		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
 	}
@@ -363,21 +371,22 @@ int initialize_bitmaps(int partition){
 	return SUCCESS;
 }
 
-DWORD map_inode_to_sector(int partition, int inode_index) {
+DWORD map_inode_to_sector(int inode_index) {
 
-	DWORD sector = first_inode_sector(partition);
+	DWORD sector = first_inode_sector();
 	sector += floor(inode_index/INODES_PER_SECTOR);
 	return sector;
 }
-DWORD map_block_to_sector(int partition, int block_index) {
+DWORD map_block_to_sector(int block_index) {
 
-	DWORD sector = first_data_sector(partition);
-	sector += block_index;
+	DWORD sector = first_data_sector();
+	sector += block_index*mounted->superblock->blockSize;
+	sector += block_index%mounted->superblock->blockSize;  //TODO: alterei sera que ta certo
 	return sector;
 }
 
-// Input: partition number, inode index in disk, pointer to an allocated inode structure
-int read_inode(int partition, int inode_index, T_INODE* inode){
+// Input: inode index in disk, pointer to an allocated inode structure
+int read_inode(int inode_index, T_INODE* inode){
 
 	return SUCCESS;
 }
@@ -418,7 +427,7 @@ int INODE_to_BYTE(T_INODE* inode, BYTE* bytes) {
 	return SUCCESS;
 }
 
-int write_new_inode(int partition, T_INODE* inode){
+int save_new_inode(T_INODE* inode){
 
 	int code_node = searchBitmap2(BITMAP_INODES, BIT_FREE);
 
@@ -443,7 +452,7 @@ int write_new_inode(int partition, T_INODE* inode){
 			count_free++;
 		}
 
-		DWORD sector = map_inode_to_sector(partition, inode_idx);
+		DWORD sector = map_inode_to_sector(inode_idx);
 
 		BYTE* buffer_sector = (BYTE*) malloc(INODES_PER_SECTOR*sizeof(T_INODE));
 		if(read_sector(sector, buffer_sector)!=SUCCESS) return(failed("WriteNewNode: Failed to read sector"));
@@ -486,7 +495,7 @@ unsigned char* get_block(int sector, int offset, int n)
 T_INODE* get_root(){
 
 	// get first inode (root dir)
-	DWORD sector = map_inode_to_sector(partition, 0);
+	DWORD sector = map_inode_to_sector(0);
 
 	//get first block at the inodes sector
 	unsigned char* block = get_block(sector, 0, sizeof(T_INODE));
@@ -637,7 +646,7 @@ int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data
 
 int remove_file_content(T_INODE* inode)
 {
-	int superbloco_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	int superbloco_sector = mounted->mbr_data->initial_sector;
 
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
@@ -670,7 +679,7 @@ int remove_file_content(T_INODE* inode)
 int remove_record(T_INODE* root, char* filename)
 {
 
-	int superbloco_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	int superbloco_sector = mounted->mbr_data->initial_sector;
 
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
@@ -694,10 +703,10 @@ int format2(int partition, int sectors_per_block) {
 	if( initialize_superblock(partition, sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
 
-	if(initialize_inode_area(partition) != SUCCESS)
+	if(initialize_inode_area() != SUCCESS)
 		return(failed("Format2: Failed to initialize inode area"));
 
-	if(initialize_bitmaps(partition) != SUCCESS)
+	if(initialize_bitmaps() != SUCCESS)
 		return(failed("Format2: Failed to initialize bitmap area"));
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
@@ -713,22 +722,22 @@ Função:	Monta a partição indicada por "partition" no diretório raiz
 -----------------------------------------------------------------------------*/
 int mount(int partition) {
 	init();
-	if (mt_part != NULL && mt_part->id == partition){
-		return(failed("Partition already mounted"));
+	if (mounted != NULL && mounted->id == partition){
+		return(failed("Partition already mounted."));
 	}
-	if(mt_part != NULL && mt_part->id != partition){
-		return(failed("Unmount current partition before mounting another"));
+	if(mounted != NULL && mounted->id != partition){
+		return(failed("Unmount current partition before mounting another."));
 	}
 	if ((partition < 0) || (partition >= disk_mbr.num_partitions))
 		return(failed("Partition invalid."));
 
-	mt_part = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
-	mt_part->id = partition;
-	mt_part->partition_mbr = &(disk_mbr.disk_partitions[partition]);
-	load_superblock(&disk_mbr, mt_part->superblock);
-	mt_part->inodes_init_sector = map_inode_to_sector(partition,0);
-	mt_part->data_init_sector = map_block_to_sector(partition,0);
-	mt_part->root = NULL;
+	mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
+	mounted->id = partition;
+	mounted->mbr_data = &(disk_mbr.disk_partitions[partition]);
+	load_superblock(&disk_mbr, mounted->superblock);
+	mounted->fst_inode_sector = map_inode_to_sector(0);
+	mounted->fst_data_sector = map_block_to_sector(0);
+	mounted->root = NULL;
 	// TODO: REVISAR
 	return SUCCESS;
 }
@@ -738,14 +747,14 @@ Função:	Desmonta a partição atualmente montada, liberando o ponto de montage
 -----------------------------------------------------------------------------*/
 int unmount(void) {
 
-	if(mt_part == NULL){
+	if(mounted == NULL){
 		return(failed("No partition to unmount."));
 	}
 	if(closedir2() != SUCCESS){
 		return(failed("Unmount failed: could not close root dir."));
 	}
-	free(mt_part->superblock);
-	free(mt_part);
+	free(mounted->superblock);
+	free(mounted);
 	return SUCCESS;
 }
 
@@ -832,7 +841,7 @@ Função:	Função que abre um diretório existente no disco.
 int opendir2 (void) {
 	if (init() != SUCCESS) return(failed("OpenDir: failed to initialize"));
 
-	if(partition < 0) return(failed("No partition mounted yet."));
+	if(!is_mounted()) return(failed("No partition mounted yet."));
 
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
@@ -840,7 +849,7 @@ int opendir2 (void) {
 	// Se um diretório ja aberto, dizer que já tem aberto/mandar fechar o atual
 	// (embora seja o mesmo).
 	// Setar atual entrada de leitura para 0 para o readdir.
-	// current_entry[partition] = 0;
+	// mounted->root->current_entry = 0;
 	return SUCCESS;
 }
 
@@ -859,10 +868,10 @@ int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes){
 	return SUCCESS;
 }
 
-int access_inode(int partition, int inode_index, T_INODE* return_inode) {
+int access_inode(int inode_index, T_INODE* return_inode) {
 
 	// Root directory is first inode in first inode-sector
-	DWORD sector = first_inode_sector(partition);
+	DWORD sector = first_inode_sector();
 	BYTE* buffer = (BYTE*)malloc(INODES_PER_SECTOR * sizeof(T_INODE));
 	if(read_sector(sector, buffer) != SUCCESS){
 		return(failed("AccessDirectory: Failed to read dir sector."));
@@ -871,25 +880,25 @@ int access_inode(int partition, int inode_index, T_INODE* return_inode) {
 		return(failed("Failed BYTE to INODE translation"));
 	return SUCCESS;
 }
-int max_pointers_in_block(int partition){
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+int max_pointers_in_block(){
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	int max_pointers_in_block = (sb->blockSize * SECTOR_SIZE)/4 ;
 	return max_pointers_in_block;
 }
-int max_entries_in_block(int partition){
+int max_entries_in_block(){
 	// block size in BYTES div by sizeof ENTRY
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	int max_entries_in_block = (sb->blockSize * SECTOR_SIZE)/sizeof(T_RECORD);
 	return max_entries_in_block;
 }
 
-int max_dentries(int partition){
+int max_dentries(){
 	// Number of FILE ENTRIES in ROOT DIRECTORY for this partition.
 
-	int total_entries_block =  max_entries_in_block(partition);
-	int total_pointers_block = max_pointers_in_block(partition);
+	int total_entries_block =  max_entries_in_block();
+	int total_pointers_block = max_pointers_in_block();
 
 	int max_entries = 2*total_entries_block // direct pointers
 		+ total_pointers_block*total_entries_block // single indirect to a block
@@ -903,7 +912,7 @@ int max_dentries(int partition){
 // RETORNO NEGATIVO É DEU PAU.
 int find_entry(int partition, int entry_block, char* filename) {
 	// Helpful pointer
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 	BYTE* buffer = (BYTE*) malloc(sizeof(BYTE)*SECTOR_SIZE);
 	int size = sizeof(T_RECORD);
 	int max_entries_in_sector = ENTRIES_PER_SECTOR;
@@ -926,20 +935,20 @@ int find_entry(int partition, int entry_block, char* filename) {
 	return 0;//NOT FOUND
 }
 
-int sweep_directory_by_index(int partition, int index, DIRENT2* dentry) {
+int sweep_root_by_index(int index, DIRENT2* dentry) {
 	return FAILED;
 }
 
-int sweep_directory_by_name(int partition, char* filename, DIRENT2* dentry) {
+int sweep_root_by_name(char* filename, DIRENT2* dentry) {
 	// Helpful pointer
-	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+	T_SUPERBLOCK* sb = mounted->superblock;
 
 	T_INODE* dnode = (T_INODE*) malloc(sizeof(T_INODE));
-	if(access_inode(partition, 0, dnode)!=SUCCESS){
+	if(access_inode(0, dnode)!=SUCCESS){
 		return(failed("Failed to access directory node"));
 	}
 
-	//int total_entries = max_dentries(partition);
+	//int total_entries = max_dentries();
 
 	BYTE* buffer = (BYTE*) malloc(sizeof(BYTE)*SECTOR_SIZE);
 
@@ -952,17 +961,7 @@ int sweep_directory_by_name(int partition, char* filename, DIRENT2* dentry) {
 		if(read_sector(ptr_block*sb->blockSize + sector, buffer) != SUCCESS)
 			return(failed("Deu pau"));
 		// Here we have a sector made of 4-byte pointers to Entry Blocks.
-
 	}
-
-	// checar se nome em algum registro em
-	// dnode->dataPtr[0];
-	// dnode->dataPtr[1];
-	// dnode->singleIndPtr;
-	// dnode->doubleIndPtr;
-
-
-
 	return FAILED;
 }
 
@@ -973,7 +972,7 @@ Função:	Função usada para ler as entradas de um diretório.
 int readdir2 (DIRENT2 *dentry) {
 	if (init() != SUCCESS) return(failed("ReadDir: failed to initialize"));
 
-	if (partition < 0 ) return(failed("ReadDir failed: no partition mounted yet."));
+	if (!is_mounted()) return(failed("ReadDir failed: no partition mounted yet."));
 
 	// if mounted, check if directory open. if not, open and read the first index.
 	// otherwise read current entry IF VALID or the next valid one.
@@ -985,35 +984,31 @@ int readdir2 (DIRENT2 *dentry) {
 	// can`t read it for some reason
 	// no more valid entries in the open dir.
 	T_INODE* dir_node = (T_INODE*) malloc(sizeof(T_INODE));
-	if(access_inode(partition, 0, dir_node)!=SUCCESS){
+	if(access_inode(0, dir_node)!=SUCCESS){
 		return(failed("Failed to access directory node"));
 	}
 
-	int total_entries = max_dentries(partition);
+	int total_entries = max_dentries();
 	int entries_per_block = 0;
-	int total_pointers = max_pointers_in_block(partition);
+	int total_pointers = max_pointers_in_block();
 
-	if(current_entry[partition] >= total_entries) {
+	if(mounted->root->current_count >= total_entries) {
 		return(failed("Invalid directory entry"));
 	}
 
-	if(current_entry[partition] < 2*total_pointers){
+	if(mounted->root->current_count < 2*total_pointers){
 		// acessa ponteiro direto para bloco de Entradas
 	}
-	else if (current_entry[partition] < total_pointers*entries_per_block) {
+	else if (mounted->root->current_count < total_pointers*entries_per_block) {
 		// acessa ponteiro para bloco de indices, cada um para um bloco de Entradas
 	}
 	else {
 		// acessa ponteiro para bloco de indices composto de ponteiros
 		// para blocos de indices cada indice apontando para um bloco de Entradas.
 	}
-
-	current_entry++;
+	mounted->root->current_count++;
 	return SUCCESS;
 }
-
-
-
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para fechar um diretório.
@@ -1043,4 +1038,3 @@ Função:	Função usada para criar um caminho alternativo (hardlink)
 int hln2(char *linkname, char *filename) {
 	return -1;
 }
-
