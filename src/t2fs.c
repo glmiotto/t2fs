@@ -17,7 +17,7 @@ void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
 // GLOBAL VARIABLES
 MBR 					disk_mbr;
-BOLA_DA_VEZ*	mt_part;
+BOLA_DA_VEZ*		mt_part;
 T_INODE 			dummy_inode;
 
 // old variables to be removed when compiling errors stop
@@ -559,6 +559,82 @@ int init_open_files()
 	return SUCCESS;
 }
 
+int remove_pointer_from_bitmap(DWORD pointer, DWORD sector_start, DWORD block_size, WORD handle){
+	int bit = floor(pointer - sector_start)/block_size;
+
+	if(setBitmap2(handle, bit, 0)==SUCCESS){
+		return SUCCESS;
+	}
+	return FAILED;
+}
+
+int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size){
+
+	//realiza leitura de um setor do bloco de indices
+	BYTE* sector = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+
+	for(int i=0; i < block_size; i++)
+	{
+		if(read_sector(start_data_sector, sector) != SUCCESS) {
+			return failed("Failed to read MBR"); }
+		
+		//iterate pointers in sector
+		for(int j=0; j < 64; j++)
+		{
+			if(sector[j]!=0x00)
+				remove_pointer_from_bitmap(sector[j], start_data_sector, block_size, 1);
+		}
+	}
+
+	free(sector);
+
+	return SUCCESS;
+}
+
+int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size){
+
+	//realiza leitura de um setor do bloco de indices
+	BYTE* sector1 = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+	BYTE* sector2 = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+
+	//iterate through sectors in block1
+	for(int i1=0; i1 < block_size; i1++)
+	{
+		if(read_sector(start_inode_sector, sector1) != SUCCESS) {
+			return failed("Failed to read MBR"); }
+		
+		//iterate through pointers in sector1
+		for(int j1=0; j1 < 64; j1++)
+		{
+			if(sector1[j1]!=0x00){
+
+				//iterate through sectors in block2
+				for(int i2=0; i2 < block_size; i2++)
+				{
+					if(read_sector(start_inode_sector, sector2) != SUCCESS) {
+						return failed("Failed to read MBR"); 
+					}
+					
+					//iterate through pointers in sector2
+					for(int j2=0; j2 < 64; j2++)
+					{
+						if(sector2[j2]!=0x00)
+							remove_pointer_from_bitmap(sector2[j2], start_data_sector, block_size, 1);
+					}
+				}
+			}
+
+			remove_pointer_from_bitmap(sector1[j1], start_inode_sector, block_size, 0);
+
+		}
+	}
+
+	free(sector1);
+	free(sector2);
+
+	return SUCCESS;
+}
+
 int remove_file_content(T_INODE* inode)
 {
 	int superbloco_sector = disk_mbr.disk_partitions[partition].initial_sector;
@@ -566,13 +642,27 @@ int remove_file_content(T_INODE* inode)
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
 
-	// // zera bits no bitmap de dados
-	// percorre ponteiros de indirecao dupla, traduz ponteiro de dados para posicao na posicao, zera posicoes no bitmap de dados
-	// percorre ponteiros de inodes, traduz ponteiro para posicao no bitmap de inodes, zera posicoes no bitmap de inodes
+	T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
 
+	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
+	// Add offset to where the partition starts in the disk
+	int start_inode_sector = disk_mbr.disk_partitions[partition].initial_sector;
+	// Add offset to where in the partition the inodes start
+	start_inode_sector += start_block * sb->blockSize;
+
+	int start_data_sector = start_inode_sector + (sb->inodeAreaSize * sb->blockSize);
+
+	DWORD block_size = sb->blockSize;
+
+	// percorre ponteiros diretos para blocos de dados
+	remove_pointer_from_bitmap(inode->dataPtr[0], start_data_sector, block_size, 1);
+	remove_pointer_from_bitmap(inode->dataPtr[1], start_data_sector, block_size, 1);
+	
 	// percorre ponteiros indiretos de indirecao simples
+	iterate_singlePtr(inode, start_data_sector, block_size);
 
-	// percorre ponteiros de dados, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
+	// percorre ponteiros de indirecao dupla, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
+	iterate_doublePtr(inode, start_inode_sector, start_data_sector, block_size);
 
 	return SUCCESS;
 }
