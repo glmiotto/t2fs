@@ -81,12 +81,61 @@ int get_mounted(void) {
 	else return FAILED;
 }
 
+boolean is_root_open(){
+	if(is_mounted()){
+		if(mounted->root == NULL || !mounted->root->open)
+			return false;
+		else return true;
+	}
+	return false;
+}
+
+BYTE* alloc_sector() {
+	BYTE* buffer= (BYTE*)malloc(sizeof(BYTE) * SECTOR_SIZE);
+	return buffer;
+}
+
+int load_root(){
+	if (init() != SUCCESS) return(failed("Uninitialized"));
+	if (!is_mounted())  return(failed("No partition mounted."));
+	if (is_root_open()) return SUCCESS;
+
+	BYTE* buffer = alloc_sector();
+	if(read_sector(mounted->fst_inode_sector,  buffer) != SUCCESS)
+		return(failed("LoadRoot failed"));
+
+	T_INODE* dir_node = (T_INODE*)malloc(sizeof(T_INODE));
+	if(access_inode(ROOT_INODE, dir_node)!=SUCCESS){
+		return(failed("LoadRoot: Failed to access directory node"));
+	}
+
+	T_DIRECTORY* rt = mounted->root;
+	rt->open = true; // TODO: nao acho que ja posso assumir isso
+	rt->inode = dir_node ;
+	rt->inode_index = ROOT_INODE;
+	rt->entry_index = DEFAULT_ENTRY;
+	rt->total_entries = 0; // TODO: errado, percorrer pelo node todos validos
+
+	// Maximum number of ENTRY BLOCKS the d-node can hold.
+	rt->max_entries = 2  						// direct pointers to Entry Nodes
+			+ mounted->pointers_per_block // 1 single indirect pointer to block of direct pointers
+			+ mounted->pointers_per_block*mounted->pointers_per_block; // 1 double indirect
+	// Multiply by number of entries in a data block
+	// to get no. of ENTRIES per d-node.
+	rt->max_entries *= mounted->entries_per_block;
+
+	rt->open_files = NULL; // TODO errado??
+	rt->num_open_files = 0; // TODO errado??
+	return SUCCESS;
+
+}
+
 
 int init(){
 	if (t2fs_initialized) return SUCCESS;
 
 	// Reads first disk sector with raw MBR data
-	BYTE* master_sector = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+	BYTE* master_sector = alloc_sector();
 	if(read_sector(SECTOR_DISK_MBR, master_sector) != SUCCESS) {
 		return failed("Failed to read MBR"); }
 
@@ -135,7 +184,7 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	return SUCCESS;
 }
 
-int report_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
+int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 
 	printf("Initializing...\n");
 	init();
@@ -158,25 +207,6 @@ int report_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 	return SUCCESS;
 }
 
-
-DWORD first_inode_sector(){
-	T_SUPERBLOCK* sb = mounted->superblock;
-
-	DWORD sector = mounted->mbr_data->initial_sector;
-	sector += sb->superblockSize * sb->blockSize;
-	sector += sb->freeInodeBitmapSize * sb->blockSize;
-	sector += sb->freeBlocksBitmapSize * sb->blockSize;
-
-	return sector;
-}
-DWORD first_data_sector(){
-	T_SUPERBLOCK* sb = mounted->superblock;
-
-	DWORD sector = first_inode_sector();
-	sector += sb->inodeAreaSize * sb->blockSize;
-	return sector;
-}
-
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
 -----------------------------------------------------------------------------*/
@@ -190,56 +220,60 @@ int identify2 (char *name, int size) {
 	return SUCCESS;
 }
 
-int initialize_superblock(int partition, int sectors_per_block) {
-
-	if (partition >= disk_mbr.num_partitions) return failed("Invalid partition bye");
-
-	int first_sector = mounted->mbr_data->initial_sector;
-	int last_sector  = mounted->mbr_data->final_sector;
-	int num_sectors = last_sector - first_sector + 1;
+int initialize_superblock(int sectors_per_block) {
 	// Gets pointer to superblock for legibility
 	T_SUPERBLOCK* sb = mounted->superblock;
+
+	int fst_sect = mounted->mbr_data->initial_sector;
+	int lst_sect  = mounted->mbr_data->final_sector;
+	int num_sectors = lst_sect - fst_sect + 1;
 
 	strncpy(sb->id, "T2FS", 4);
 	sb->version = 0x7E32;
 	sb->superblockSize = 1;
-	printf("SECTOR PER BLOCO %d\n", sectors_per_block);
 	sb->blockSize = (WORD)sectors_per_block;
-
-	sb->diskSize =(num_sectors /sectors_per_block); //Number of logical blocks in formatted disk.
+	//Number of logical blocks in formatted disk.
+	sb->diskSize = (WORD)ceil(num_sectors/(float)sectors_per_block);
 	printf("num sectors %d\n", num_sectors);
-	printf("disksize %d\n", num_sectors/sectors_per_block);
+	printf("num sectors per block %d\n", sectors_per_block);
+	printf("disksize %d\n", sb->diskSize);
 
-	// bitmap has "num_blocks_formatted" bits
-	// freeBlocksBitmapSize is the number of blocks needed to store the bitmap.
-	// therefore: "diskSize in blocks" bits, divided by 8 to get bytes.
-	// bytes divided by ( number of bytes per sector * number of sectors per block).
+	// 10% of partition blocks reserved to inodes (ROUND UP)
+	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize));
+	printf("inode Area Size %d\n", sb->inodeAreaSize);
+	// inode bitmap size: 1 bit per inode given "X" inodes per block
+	// size in bits then converted to bytes -> sectors -> blocks.
+	// First: inode Area in bytes
+	float inode_bmap = (float)sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
+	// Divide by size of 1 inode in bytes, thus the number of inodes in the inode area.
+	inode_bmap /= (float)sizeof(T_INODE);
+	// 1 bit per inode, now converted to number of blocks rounding up.
+	inode_bmap /= (float)(8*disk_mbr.sector_size*sectors_per_block);
+	sb->freeInodeBitmapSize = (WORD) ceil(inode_bmap);
+
+	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
+	data_blocks -= sb->freeInodeBitmapSize;
+	// block bitmap size is dependent on how many blocks are left after the bitmap.
+	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
+	sb->freeBlocksBitmapSize = (WORD)
+		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
 
 	// TODO: revisar isso
-	sb->freeBlocksBitmapSize =(sb->diskSize / 8 / (disk_mbr.sector_size * sectors_per_block));
-	// 10% of the partition blocks are reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (ceil(0.10*sb->diskSize)); // qty in blocks
-	sb->freeInodeBitmapSize =
-		ceil(sb->inodeAreaSize*(disk_mbr.sector_size * sectors_per_block)
-			/ (float)(sizeof(T_INODE) * 8)
-			/ (disk_mbr.sector_size * sectors_per_block));
-	printf("DISK SIZE IN BLOCKS %d\n", sb->diskSize);
-
-	printf("frEE BLOCKS BITMAP SIZE %d\n", sb->freeBlocksBitmapSize);
-	printf("frEE INODE BITMAP SIZE %d\n", sb->freeInodeBitmapSize);
-	printf("iNODE AREA SIZE %d\n", sb->inodeAreaSize);
-
+	printf("diskSize in blocks %d\n", sb->diskSize);
+	printf("freeBlocksBitmapSize %d\n", sb->freeBlocksBitmapSize);
+	printf("freeInodeBitmapSize %d\n", sb->freeInodeBitmapSize);
+	printf("inodeAreaSize %d\n", sb->inodeAreaSize);
 	calculate_checksum(sb);
 	printf("CHECKSUM %u\n", sb->Checksum);
-	writeback_superblock();
+
+	save_superblock();
 	return SUCCESS;
 }
 
-int writeback_superblock() {
-	BYTE* output = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+int save_superblock() {
 	// Gets pointer to application-space superblock
 	T_SUPERBLOCK* sb = mounted->superblock;
-
+	BYTE* output = alloc_sector();
 	output[0] = sb->id[3];
 	output[1] = sb->id[2];
 	output[2] = sb->id[1];
@@ -257,6 +291,15 @@ int writeback_superblock() {
 		return failed("Failed to write superblock to partition sector");
 	}
 	else return SUCCESS;
+}
+int load_superblock() {
+	if (!is_mounted()) return(failed("Unmounted."));
+
+	mounted->superblock = (T_SUPERBLOCK*) malloc(sizeof(T_SUPERBLOCK));
+	BYTE* buffer = alloc_sector();
+	if(read_sector(mounted->mbr_data->initial_sector, buffer)!= SUCCESS) return(failed("failed reading sb"));
+	if(BYTE_to_SUPERBLOCK(buffer,mounted->superblock) !=SUCCESS) return FAILED;
+	return SUCCESS;
 }
 
 int load_mbr(BYTE* master_sector, MBR* mbr) {
@@ -373,15 +416,16 @@ int initialize_bitmaps(){
 
 DWORD map_inode_to_sector(int inode_index) {
 
-	DWORD sector = first_inode_sector();
+	DWORD sector = mounted->fst_inode_sector;
 	sector += floor(inode_index/INODES_PER_SECTOR);
 	return sector;
 }
 DWORD map_block_to_sector(int block_index) {
 
-	DWORD sector = first_data_sector();
-	sector += block_index*mounted->superblock->blockSize;
-	sector += block_index%mounted->superblock->blockSize;  //TODO: alterei sera que ta certo
+	DWORD sector = mounted->fst_data_sector;
+	sector += block_index * mounted->superblock->blockSize;
+	sector += block_index % mounted->superblock->blockSize;
+	// TODO verificar.
 	return sector;
 }
 
@@ -568,6 +612,7 @@ int init_open_files()
 	return SUCCESS;
 }
 
+
 int remove_pointer_from_bitmap(DWORD pointer, DWORD sector_start, DWORD block_size, WORD handle){
 	int bit = floor(pointer - sector_start)/block_size;
 
@@ -580,23 +625,18 @@ int remove_pointer_from_bitmap(DWORD pointer, DWORD sector_start, DWORD block_si
 int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size){
 
 	//realiza leitura de um setor do bloco de indices
-	BYTE* sector = (BYTE*)malloc(SECTOR_SIZE*sizeof(BYTE));
+	BYTE* buffer = alloc_sector();
 
-	for(int i=0; i < block_size; i++)
-	{
-		if(read_sector(start_data_sector, sector) != SUCCESS) {
+	for(int i=0; i < block_size; i++){
+		if(read_sector(start_data_sector, buffer) != SUCCESS) {
 			return failed("Failed to read MBR"); }
-		
 		//iterate pointers in sector
-		for(int j=0; j < 64; j++)
-		{
-			if(sector[j]!=0x00)
-				remove_pointer_from_bitmap(sector[j], start_data_sector, block_size, 1);
+		for(int j=0; j < 64; j++){
+			if(buffer[j]!=0x00)
+				remove_pointer_from_bitmap(buffer[j], start_data_sector, block_size, 1);
 		}
 	}
-
-	free(sector);
-
+	free(buffer);
 	return SUCCESS;
 }
 
@@ -611,7 +651,7 @@ int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data
 	{
 		if(read_sector(start_inode_sector, sector1) != SUCCESS) {
 			return failed("Failed to read MBR"); }
-		
+
 		//iterate through pointers in sector1
 		for(int j1=0; j1 < 64; j1++)
 		{
@@ -621,9 +661,9 @@ int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data
 				for(int i2=0; i2 < block_size; i2++)
 				{
 					if(read_sector(start_inode_sector, sector2) != SUCCESS) {
-						return failed("Failed to read MBR"); 
+						return failed("Failed to read MBR");
 					}
-					
+
 					//iterate through pointers in sector2
 					for(int j2=0; j2 < 64; j2++)
 					{
@@ -644,6 +684,8 @@ int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data
 	return SUCCESS;
 }
 
+
+
 int remove_file_content(T_INODE* inode)
 {
 	int superbloco_sector = mounted->mbr_data->initial_sector;
@@ -651,7 +693,7 @@ int remove_file_content(T_INODE* inode)
 	if(openBitmap2(superbloco_sector) != SUCCESS)
 		return FAILED;
 
-	// T_SUPERBLOCK* sb = &(partition_superblocks[partition]);
+
 	T_SUPERBLOCK* sb = mounted->superblock;
 
 	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
@@ -667,7 +709,7 @@ int remove_file_content(T_INODE* inode)
 	// percorre ponteiros diretos para blocos de dados
 	remove_pointer_from_bitmap(inode->dataPtr[0], start_data_sector, block_size, 1);
 	remove_pointer_from_bitmap(inode->dataPtr[1], start_data_sector, block_size, 1);
-	
+
 	// percorre ponteiros indiretos de indirecao simples
 	iterate_singlePtr(inode, start_data_sector, block_size);
 
@@ -701,7 +743,7 @@ int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
 
-	if( initialize_superblock(partition, sectors_per_block) != SUCCESS)
+	if(initialize_superblock(sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
 
 	if(initialize_inode_area() != SUCCESS)
@@ -735,11 +777,24 @@ int mount(int partition) {
 	mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
 	mounted->id = partition;
 	mounted->mbr_data = &(disk_mbr.disk_partitions[partition]);
-	load_superblock(&disk_mbr, mounted->superblock);
-	mounted->fst_inode_sector = map_inode_to_sector(0);
-	mounted->fst_data_sector = map_block_to_sector(0);
+	load_superblock();
 	mounted->root = NULL;
+
+	// Calculate initial sectors.
+	T_SUPERBLOCK* sb = mounted->superblock;
+	DWORD inode_s0 = mounted->mbr_data->initial_sector;
+	inode_s0 += sb->superblockSize * sb->blockSize;
+	inode_s0 += sb->freeInodeBitmapSize * sb->blockSize;
+	inode_s0 += sb->freeBlocksBitmapSize * sb->blockSize;
+
+	mounted->fst_inode_sector = inode_s0;
+	mounted->fst_data_sector = inode_s0 + sb->inodeAreaSize * sb->blockSize;
 	// TODO: REVISAR
+
+	mounted->pointers_per_block =
+			mounted->superblock->blockSize * SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
+	mounted->entries_per_block =
+			mounted->superblock->blockSize * SECTOR_SIZE / ENTRY_SIZE_BYTES;
 	return SUCCESS;
 }
 
@@ -844,6 +899,12 @@ int opendir2 (void) {
 
 	if(!is_mounted()) return(failed("No partition mounted yet."));
 
+	// Get mounted partition, load root directory, set entry to zero.
+	if(!is_root_open())
+		load_root();
+
+	mounted->root->open = true;
+	mounted->root->entry_index = 0;
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
 	// que guarde globalmente tudo que precisamos de um diretório.
@@ -872,7 +933,7 @@ int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes){
 int access_inode(int inode_index, T_INODE* return_inode) {
 
 	// Root directory is first inode in first inode-sector
-	DWORD sector = first_inode_sector();
+	DWORD sector = mounted->fst_inode_sector;
 	BYTE* buffer = (BYTE*)malloc(INODES_PER_SECTOR * sizeof(T_INODE));
 	if(read_sector(sector, buffer) != SUCCESS){
 		return(failed("AccessDirectory: Failed to read dir sector."));
@@ -893,19 +954,6 @@ int max_entries_in_block(){
 
 	int max_entries_in_block = (sb->blockSize * SECTOR_SIZE)/sizeof(T_RECORD);
 	return max_entries_in_block;
-}
-
-int max_dentries(){
-	// Number of FILE ENTRIES in ROOT DIRECTORY for this partition.
-
-	int total_entries_block =  max_entries_in_block();
-	int total_pointers_block = max_pointers_in_block();
-
-	int max_entries = 2*total_entries_block // direct pointers
-		+ total_pointers_block*total_entries_block // single indirect to a block
-		+ total_pointers_block*total_pointers_block*total_entries_block;
-
-	return max_entries ;
 }
 
 // TODO: TA RETORNANDO O SETOR ONDE ENCONTROU A ENTRY (>= 1)
@@ -940,23 +988,23 @@ int sweep_root_by_index(int index, DIRENT2* dentry) {
 	return FAILED;
 }
 
+
+//TODO
 int sweep_root_by_name(char* filename, DIRENT2* dentry) {
-	// Helpful pointer
+
+	if(!is_mounted()) return FAILED;
+	if(!is_root_open()) return FAILED;
+
+	// Helpful pointers
 	T_SUPERBLOCK* sb = mounted->superblock;
+	T_DIRECTORY* rt = mounted->root;
 
-	T_INODE* dnode = (T_INODE*) malloc(sizeof(T_INODE));
-	if(access_inode(0, dnode)!=SUCCESS){
-		return(failed("Failed to access directory node"));
-	}
-
-	//int total_entries = max_dentries();
-
-	BYTE* buffer = (BYTE*) malloc(sizeof(BYTE)*SECTOR_SIZE);
+	BYTE* buffer = alloc_sector();
 
 	// TODO: verificar se ponteiro no inode é absoluto para um bloco (ou setor!)
 	// ou relativo aa particao
 
-	int ptr_block = dnode->dataPtr[0];
+	int ptr_block = rt->inode->dataPtr[0];
 	for (int sector = 0; sector < sb->blockSize; sector++){
 
 		if(read_sector(ptr_block*sb->blockSize + sector, buffer) != SUCCESS)
@@ -984,30 +1032,26 @@ int readdir2 (DIRENT2 *dentry) {
 	// return error code if:
 	// can`t read it for some reason
 	// no more valid entries in the open dir.
-	T_INODE* dir_node = (T_INODE*) malloc(sizeof(T_INODE));
-	if(access_inode(0, dir_node)!=SUCCESS){
-		return(failed("Failed to access directory node"));
+	if(! is_root_open()) {
+		if(load_root()!=SUCCESS) return FAILED;
+	}
+	T_DIRECTORY* rt = mounted->root;
+
+	if(rt->entry_index >= rt->max_entries) {
+		return(failed("Entry index exceeds size limit."));
 	}
 
-	int total_entries = max_dentries();
-	int entries_per_block = 0;
-	int total_pointers = max_pointers_in_block();
-
-	if(mounted->root->current_count >= total_entries) {
-		return(failed("Invalid directory entry"));
-	}
-
-	if(mounted->root->current_count < 2*total_pointers){
+	if(rt->entry_index < 2*mounted->entries_per_block){
 		// acessa ponteiro direto para bloco de Entradas
 	}
-	else if (mounted->root->current_count < total_pointers*entries_per_block) {
+	else if (rt->entry_index < mounted->pointers_per_block*mounted->entries_per_block) {
 		// acessa ponteiro para bloco de indices, cada um para um bloco de Entradas
 	}
 	else {
 		// acessa ponteiro para bloco de indices composto de ponteiros
 		// para blocos de indices cada indice apontando para um bloco de Entradas.
 	}
-	mounted->root->current_count++;
+	mounted->root->entry_index++;
 	return SUCCESS;
 }
 
@@ -1017,13 +1061,19 @@ Função:	Função usada para fechar um diretório.
 int closedir2 (void) {
 	if (init() != SUCCESS) return(failed("CloseDir: failed to initialize"));
 
+	if (!is_mounted() || !is_root_open()) return(failed("ClosedDir: no directory open."));
+
 	/*
-	Checa se está open em ROOT_DIRECTORY
-	Fecha arquivos abertos (acho)
-	Desaloca a estrutura temporária em que seus dados estão guardados,
-	se não for um ponteiro.
+	for (int i ; i < MAX_FILES_OPEN; i++){
+		if (mounted->root->open_files[i] != invalido/null){
+			//close file still open, saving back modifications etc.
+		}
+	}
+	mounted->root->open = false;
+		//TODO: não acho que precise desalocar o diretorio mas somente deixar como null ptr
+	mounted->root = NULL;
 	*/
-	return -1;
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------

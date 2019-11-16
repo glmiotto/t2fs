@@ -31,6 +31,7 @@ typedef struct t2fs_record 		 	T_RECORD;
 #define SECTOR_SIZE 256
 #define INODE_SIZE_BYTES 32
 #define ENTRY_SIZE_BYTES sizeof(T_RECORD)
+#define DATA_PTR_SIZE_BYTES sizeof(DWORD)
 #define INODES_PER_SECTOR SECTOR_SIZE / INODE_SIZE_BYTES
 #define ENTRIES_PER_SECTOR SECTOR_SIZE / ENTRY_SIZE_BYTES
 
@@ -49,6 +50,7 @@ typedef struct t2fs_record 		 	T_RECORD;
 #define DEFAULT_ENTRY 0
 #define SECTOR_DISK_MBR 0
 #define SECTOR_PARTITION_SUPERBLOCK 0
+#define ROOT_INODE 0
 #define error() printf("Error thrown at %s:%s:%d\n",FILE,__FUNCTION__,LINE);
 /* **************************************************************** */
 
@@ -67,7 +69,7 @@ typedef struct Directory{
 	T_INODE*  inode;
 	DWORD     inode_index;
   T_RECORD* current_entry;
-	DWORD 		current_count;
+	DWORD 		entry_index;
   DWORD     total_entries;
   DWORD     max_entries;
   T_FOPEN*  open_files;
@@ -87,6 +89,8 @@ typedef struct WorkingPartition{
   DWORD         fst_inode_sector;
   DWORD         fst_data_sector;
   T_DIRECTORY*  root;
+  DWORD         pointers_per_block;
+  DWORD         entries_per_block;
 } BOLA_DA_VEZ;
 
 typedef struct Mbr{
@@ -99,11 +103,18 @@ typedef struct Mbr{
 
 int init();
 int load_mbr(BYTE* master_sector, MBR* mbr);
-int load_superblock(MBR* mbr, T_SUPERBLOCK* sb);
-int initialize_superblock(int partition, int sectors_per_block);
+int load_superblock();
+int load_root();
+int initialize_superblock(int sectors_per_block);
 int save_superblock();
 void calculate_checksum(T_SUPERBLOCK* sb);
 int init_open_files();
+
+//
+boolean is_root_open(void);
+boolean is_mounted(void);
+int get_mounted(void);
+BYTE* alloc_sector();
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);
 BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);
@@ -119,7 +130,6 @@ DWORD map_inode_to_sector(int inode_index);
 DWORD map_block_to_sector(int block_index);
 int max_pointers_in_block();
 int max_entries_in_block();
-int max_dentries();
 
 int access_inode(int inode_index, T_INODE* return_inode);
 int find_entry(int partition, int entry_block, char* filename);
