@@ -241,16 +241,21 @@ int initialize_superblock(int sectors_per_block) {
 	// 10% of partition blocks reserved to inodes (ROUND UP)
 	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize));
 	printf("inode Area Size %d\n", sb->inodeAreaSize);
+
+	/* ************* BITMAPS ************* */
+
+	// Total number of inodes is how many we fit into its area size.
+	// inodeAreaSize in bytes divided by inode size in bytes.
+	mounted->total_inodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
+	mounted->total_inodes /= sizeof(T_INODE);
+
 	// inode bitmap size: 1 bit per inode given "X" inodes per block
-	// size in bits then converted to bytes -> sectors -> blocks.
-	// First: inode Area in bytes
-	float inode_bmap = (float)sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
-	// Divide by size of 1 inode in bytes, thus the number of inodes in the inode area.
-	inode_bmap /= (float)sizeof(T_INODE);
+	float inode_bmap = (float)mounted->total_inodes;
 	// 1 bit per inode, now converted to number of blocks rounding up.
 	inode_bmap /= (float)(8*disk_mbr.sector_size*sectors_per_block);
 	sb->freeInodeBitmapSize = (WORD) ceil(inode_bmap);
 
+	// Total number of data blocks is dependent on size of its own bitmap!
 	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
 	data_blocks -= sb->freeInodeBitmapSize;
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
@@ -258,13 +263,19 @@ int initialize_superblock(int sectors_per_block) {
 	sb->freeBlocksBitmapSize = (WORD)
 		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
 
-	// TODO: revisar isso
-	printf("diskSize in blocks %d\n", sb->diskSize);
+	mounted->total_data_blocks = data_blocks - sb->freeBlocksBitmapSize;
+
+	// TODO: revisar tudo isso
+	printf("diskSize (of partition) in blocks %d\n", sb->diskSize);
 	printf("freeBlocksBitmapSize %d\n", sb->freeBlocksBitmapSize);
 	printf("freeInodeBitmapSize %d\n", sb->freeInodeBitmapSize);
 	printf("inodeAreaSize %d\n", sb->inodeAreaSize);
 	calculate_checksum(sb);
 	printf("CHECKSUM %u\n", sb->Checksum);
+
+	printf("Total VALID inodes: %d\n", mounted->total_inodes);
+	printf("Total VALID data blocks: %d\n", mounted->total_data_blocks);
+	printf("Total theoretical data blocks: %d\n", sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8);
 
 	save_superblock();
 	return SUCCESS;
@@ -343,20 +354,9 @@ void calculate_checksum(T_SUPERBLOCK* sb) {
 
 int initialize_inode_area(){
 	// Helpful pointer
-	T_SUPERBLOCK* sb = mounted->superblock;
-	// Starting block:
-	// First partition block is superblock
-	// Then come bitmaps (size given in block)
-	// Then the inodes, occupying 10% of the disk.
-	// ROOT DIRECTORY is inode number 0
-	// Each inode holds 32 bytes.
-	// inode area given in BLOCKS
-	// Calculate first inodes block within the partition
-	DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
-	// Add offset to where the partition starts in the disk
-	int start_sector = mounted->mbr_data->initial_sector;
-	// Add offset to where in the partition the inodes start
-	start_sector += start_block * sb->blockSize;
+
+	// first inode sector
+	// mounted->fst_inode_sector;
 
 	dummy_inode.blocksFileSize = -1;
 	dummy_inode.bytesFileSize = -1;
@@ -385,32 +385,47 @@ int initialize_inode_area(){
 int initialize_bitmaps(){
 	T_SUPERBLOCK* sb = mounted->superblock;
 
-	// Allocates both Bitmaps (block status and inode status)
-	// Input: disk sector where the partition's superblock is
-	// (aka, the first sector in a formatted partition)
+	// Allocates both Bitmaps for the currently mounted partition.
 	// Output: success/error code
+	// OpenBitmap receives the sector with the superblock.
 	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS){
-		// provavelmente desalocar alguma coisa
 		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
 	}
-	// Bitmaps open and allocated, needs to be initialized as FREE
-	// inode bitmap: handle 0
-	// blocks bitmap: handle not 0
-	for (int bit_idx=0;  // TODO: TALVEZ TENHA QUE SER POSITIVO (ROOT DIRECTORY É IDX 0)
-				bit_idx < sb->freeInodeBitmapSize * sb->blockSize *SECTOR_SIZE*8;
-					bit_idx++){
-		if(setBitmap2(BITMAP_INODES, bit_idx, BIT_FREE) != SUCCESS) {
-			return(failed("Failed to set bit as free in inode bitmap"));
+
+	// Set inode bits to FREE,
+	// except for root (inode #0, currently no data blocks)
+	if(setBitmap2(BITMAP_INODES, ROOT_INODE, BIT_OCCUPIED) != SUCCESS)
+		return(failed("Init SetBitmaps fail 1."));
+
+	int bit;
+	for (bit = ROOT_INODE+1; bit < mounted->total_inodes; bit++){
+		// Each bit after root is set to FREE
+		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
+			return(failed("Failed to set a bit as free in inode bitmap"));
 		}
 	}
-	for (int bit_idx=0;
-		bit_idx < sb->freeBlocksBitmapSize * sb->blockSize *SECTOR_SIZE*8;
-		bit_idx++) {
 
-		if(setBitmap2(BITMAP_BLOCKS, bit_idx, BIT_FREE) != SUCCESS) {
+	// Data bitmap:
+	// Since bitmap size is measured in blocks (rounding up),
+	// we first initialize valid bits to FREE
+	// and invalid ones to OCC (to forcibly limit access to non-existing disk area)
+	int valid_blocks = mounted->total_data_blocks;
+	int theoretical_blocks = sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8;
+
+	for (bit=0; bit < mounted->total_data_blocks; bit++) {
+		// total VALID blocks (addressable by the API)
+		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
 			return(failed("Failed to set bit as free in blocks bitmap"));
 		}
 	}
+
+	for (bit= valid_blocks; bit < theoretical_blocks; bit++) {
+
+		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
+			return(failed("Failed to set theoretical bit as occupied in blocks bitmap"));
+		}
+	}
+
 	return SUCCESS;
 }
 

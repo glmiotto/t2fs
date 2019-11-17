@@ -91,6 +91,8 @@ typedef struct WorkingPartition{
   T_DIRECTORY*  root;
   DWORD         pointers_per_block;
   DWORD         entries_per_block;
+  DWORD         total_inodes;
+  DWORD         total_data_blocks;
 } BOLA_DA_VEZ;
 
 typedef struct Mbr{
