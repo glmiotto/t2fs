@@ -22,8 +22,7 @@ int main(int argc, char *argv[]) {
 
   load_mbr(mbr_sector, mbr);
 
-  // part 1, 2 secs per block
-  mount(1, 2);
+  mount(1);
 
 
   printf("\nVersion: %d\n", mbr->version);
@@ -51,7 +50,7 @@ int main(int argc, char *argv[]) {
   opendir2();
   BOLA_DA_VEZ* mounted;// = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
   mounted = get_mounted();
-  T_RECORD* rec = (T_RECORD*)malloc(sizeo(T_RECORD));
+  T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
   int i=0;
 
   while( i < mounted->root->max_entries){

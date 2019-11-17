@@ -130,8 +130,11 @@ int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
 int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
 int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry);
 
+void print_RECORD(T_RECORD* record);
+
 DWORD map_inode_to_sector(int inode_index);
 DWORD map_block_to_sector(int block_index);
+int map_index_to_record(DWORD index, T_RECORD* record);
 int max_pointers_in_block();
 int max_entries_in_block();
 

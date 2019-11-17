@@ -37,6 +37,10 @@ shell:
 test_mbr:
 	gcc -o $(EXMP_DIR)/test_mbr $(EXMP_DIR)/test_mbr.c -L ./ -l$(name) -lm -Wall
 
+tst_map:
+	gcc -o $(EXMP_DIR)/tst_map $(EXMP_DIR)/tst_map.c -L ./ -l$(name) -lm -Wall
+
+
 tar:
 		@cd .. && tar -zcvf 287677_207758_299902.tar.gz $(name)
 
