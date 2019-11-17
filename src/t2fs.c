@@ -397,11 +397,21 @@ int initialize_bitmaps(){
 	if(setBitmap2(BITMAP_INODES, ROOT_INODE, BIT_OCCUPIED) != SUCCESS)
 		return(failed("Init SetBitmaps fail 1."));
 
+	int valid_nodes = mounted->total_inodes;
+	int theoretical_nodes = sb->freeInodeBitmapSize*sb->blockSize*SECTOR_SIZE*8;
+
 	int bit;
-	for (bit = ROOT_INODE+1; bit < mounted->total_inodes; bit++){
+	for (bit = ROOT_INODE+1; bit < valid_nodes; bit++){
 		// Each bit after root is set to FREE
 		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
 			return(failed("Failed to set a bit as free in inode bitmap"));
+		}
+	}
+
+	for (bit = valid_nodes; bit < theoretical_nodes; bit++){
+		// Each non-mappable bit is set to OCCUPIED forever
+		if(setBitmap2(BITMAP_INODES, bit, BIT_OCCUPIED) != SUCCESS) {
+			return(failed("Failed to set a theobit as occupied in inode bitmap"));
 		}
 	}
 
@@ -420,9 +430,9 @@ int initialize_bitmaps(){
 	}
 
 	for (bit= valid_blocks; bit < theoretical_blocks; bit++) {
-
+		// non addressable blocks are marked OCCUPIED forever
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			return(failed("Failed to set theoretical bit as occupied in blocks bitmap"));
+			return(failed("Failed to set theobit as occupied in blocks bitmap"));
 		}
 	}
 
