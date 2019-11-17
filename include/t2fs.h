@@ -114,8 +114,9 @@ int init_open_files();
 
 //
 boolean is_root_open(void);
+boolean is_root_loaded();
 boolean is_mounted(void);
-int get_mounted(void);
+BOLA_DA_VEZ* get_mounted(void);
 BYTE* alloc_sector();
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);

@@ -75,20 +75,29 @@ boolean is_mounted(void){
 	else return true;
 }
 
-int get_mounted(void) {
+BOLA_DA_VEZ* get_mounted(void) {
 	if(is_mounted())
-		return mounted->id;
-	else return FAILED;
+		return mounted;
+	else return NULL;
 }
 
-boolean is_root_open(){
+boolean is_root_loaded(){
 	if(is_mounted()){
-		if(mounted->root == NULL || !mounted->root->open)
+		if(mounted->root == NULL)
 			return false;
 		else return true;
 	}
 	return false;
 }
+boolean is_root_open(){
+	if(is_mounted() && is_root_loaded()){
+		if(!mounted->root->open)
+			return false;
+		else return true;
+	}
+	return false;
+}
+
 
 BYTE* alloc_sector() {
 	BYTE* buffer= (BYTE*)malloc(sizeof(BYTE) * SECTOR_SIZE);
@@ -98,7 +107,7 @@ BYTE* alloc_sector() {
 int load_root(){
 	if (init() != SUCCESS) return(failed("Uninitialized"));
 	if (!is_mounted())  return(failed("No partition mounted."));
-	if (is_root_open()) return SUCCESS;
+	if (is_root_loaded()) return SUCCESS;
 
 	BYTE* buffer = alloc_sector();
 	if(read_sector(mounted->fst_inode_sector,  buffer) != SUCCESS)
@@ -194,6 +203,15 @@ int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 	return SUCCESS;
 }
 
+void print_RECORD(T_RECORD* record){
+	if(record==NULL) {print("Record is nullptr."); return;}
+	printf("--------------\n");
+	printf("File name: %s\n", record->name);
+	printf("File type: %x\n", record->TypeVal);
+	printf("inode index: %x\n", record->inodeNumber);
+
+}
+
 int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 
 	printf("Initializing...\n");
@@ -203,7 +221,7 @@ int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 	format2(0, 4);
 	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
 	printf("Reading sector from disk...\n");
-	int j = get_mounted();
+	int j = 0;
 	printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
 	printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
 	printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
@@ -940,7 +958,7 @@ int opendir2 (void) {
 	if(!is_mounted()) return(failed("No partition mounted yet."));
 
 	// Get mounted partition, load root directory, set entry to zero.
-	if(!is_root_open())
+	if(!is_root_loaded())
 		load_root();
 
 	mounted->root->open = true;
@@ -1215,16 +1233,18 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 	else {
 		DWORD double_index_block = rt->inode->doubleIndPtr;
 		offset = double_index_block * sb->blockSize;
-		DWORD pointer_index  = block_key - ppb;
+		DWORD pointer_index  = block_key - 2 - ppb;
 		DWORD pointer_sector = (pointer_index / pps) / pps;
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp3 womp"));
 
-		index_block = to_int(&(buffer[((pointer_index % pps) % pps)*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
+		index_block = to_int(&(buffer[((pointer_index / pps) % pps)*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
 		offset = index_block * sb->blockSize;
-		pointer_index = block_key - ppb - pointer_sector*pps*ppb;
-		pointer_sector = pointer_index ; // TODO continuar
+		pointer_index = block_key - 2 - ppb - pointer_sector*pps*ppb;
+		pointer_sector = pointer_index / pps;
+		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp4 womp"));
 
-		// perto do fim mas nao consigo mais pensar em modulo
+		memcpy(record, &(buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES]), sizeof(T_RECORD));
+		return SUCCESS;
 	}
 	return FAILED;
 }
@@ -1248,7 +1268,7 @@ int readdir2 (DIRENT2 *dentry) {
 	// can`t read it for some reason
 	// no more valid entries in the open dir.
 	if(!is_root_open()) {
-		if(load_root()!=SUCCESS) return FAILED;
+		opendir2();
 	}
 	T_DIRECTORY* rt = mounted->root;
 
