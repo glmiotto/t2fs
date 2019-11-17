@@ -929,11 +929,19 @@ int unmount(void) {
 	}
 	printf("Unm2\n");
 
+	mounted->id = -1;
+	free(mounted->root);
 	free(mounted->superblock);
+	mounted->root = NULL;
+	mounted->superblock = NULL;
+
 	printf("Unm3\n");
 
 	free(mounted);
-	printf("Unm4\n");
+	mounted = NULL;
+	
+	printf("Unmnt. Last\n");
+
 
 	return SUCCESS;
 }
@@ -1384,7 +1392,11 @@ Função:	Função usada para fechar um diretório.
 int closedir2 (void) {
 	if (init() != SUCCESS) return(failed("CloseDir: failed to initialize"));
 
-	if (!is_mounted() || !is_root_open()) return(failed("ClosedDir: no directory open."));
+	if (!is_mounted()) return(failed("CloseDir: no partition mounted."));
+
+	if (!is_root_open()) {
+		print("CloseDir: root directory was already unopened.");
+	}
 
 	/*
 	for (int i ; i < MAX_FILES_OPEN; i++){
@@ -1393,8 +1405,9 @@ int closedir2 (void) {
 		}
 	}
 	mounted->root->open = false;
-		//TODO: não acho que precise desalocar o diretorio mas somente deixar como null ptr
-	mounted->root = NULL;
+	// DESALOCAR O ROOT na real (unload root or something)
+	depois
+	mounted->root = NULL ;
 	*/
 	return SUCCESS;
 }

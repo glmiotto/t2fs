@@ -31,12 +31,14 @@ int main(int argc, char *argv[]) {
     printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
   }
 
-  format2(0,2);
-  mount(0);
+mount(0);
+unmount();
+mount(0);
+report_superblock();
   BOLA_DA_VEZ* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
   mounted = get_mounted();
   T_SUPERBLOCK* sb = mounted->superblock;
-  printf("Id: %s\n",sb->id);
+  printf("---Id: %s\n",sb->id);
   printf("Version: %d\n",sb->version);
   printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
   printf("Free Blocks Bitmap Size(in blocks): %d\n",sb->freeBlocksBitmapSize);
