@@ -105,11 +105,18 @@ BYTE* alloc_sector() {
 }
 
 int load_root(){
+	printf("LDRT 1\n");
+
 	if (init() != SUCCESS) return(failed("Uninitialized"));
 	if (!is_mounted())  return(failed("No partition mounted."));
 	if (is_root_loaded()) return SUCCESS;
 
+	printf("LDRT 2\n");
+
+
 	BYTE* buffer = alloc_sector();
+	printf("LDRT 3\n");
+
 	if(read_sector(mounted->fst_inode_sector,  buffer) != SUCCESS)
 		return(failed("LoadRoot failed"));
 
@@ -117,13 +124,20 @@ int load_root(){
 	if(access_inode(ROOT_INODE, dir_node)!=SUCCESS){
 		return(failed("LoadRoot: Failed to access directory node"));
 	}
+	printf("LDRT 4\n");
 
+	mounted->root =  (T_DIRECTORY*)malloc(sizeof(T_DIRECTORY));
 	T_DIRECTORY* rt = mounted->root;
+
+	printf("LDRT 5\n");
+
 	rt->open = true; // TODO: nao acho que ja posso assumir isso
 	rt->inode = dir_node ;
 	rt->inode_index = ROOT_INODE;
 	rt->entry_index = DEFAULT_ENTRY;
 	rt->total_entries = 0; // TODO: errado, percorrer pelo node todos validos
+
+	printf("LDRT 6\n");
 
 	// Maximum number of ENTRY BLOCKS the d-node can hold.
 	rt->max_entries = 2  						// direct pointers to Entry Nodes
@@ -131,10 +145,15 @@ int load_root(){
 			+ mounted->pointers_per_block*mounted->pointers_per_block; // 1 double indirect
 	// Multiply by number of entries in a data block
 	// to get no. of ENTRIES per d-node.
+	printf("LDRT 7\n");
+
 	rt->max_entries *= mounted->entries_per_block;
+	printf("LDRT 8\n");
 
 	rt->open_files = NULL; // TODO errado??
 	rt->num_open_files = 0; // TODO errado??
+	printf("LDRT 9\n");
+
 	return SUCCESS;
 
 }
@@ -173,7 +192,7 @@ void report_superblock(){
 	printf("Inode area size (in blocks): %d\n",sb->inodeAreaSize);
 	printf("Block size (in sectors): %d\n",sb->blockSize);
 	printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
-	printf("Checksum: %x", sb->Checksum);
+	printf("Checksum: %u\n", sb->Checksum);
 }
 
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
@@ -197,7 +216,6 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 
 	sb->Checksum = to_int(&(bytes[20]), 4);
 	printf("BY2SPBK 8\n");
-
 
 	return SUCCESS;
 }
@@ -510,6 +528,10 @@ int initialize_bitmaps(){
 			printf("bit ruim %d\n", bit);
 			return(failed("Failed to set bit as free in blocks bitmap"));
 		}
+	}
+
+	if(closeBitmap2() != SUCCESS) {
+		print("------> WARNING: Could not save bitmap info to disk.");
 	}
 
 	return SUCCESS;
@@ -1017,12 +1039,17 @@ int opendir2 (void) {
 
 	if(!is_mounted()) return(failed("No partition mounted yet."));
 
+	printf("OpD 1\n");
 	// Get mounted partition, load root directory, set entry to zero.
 	if(!is_root_loaded())
 		load_root();
 
+	printf("OpD 2\n");
+
 	mounted->root->open = true;
 	mounted->root->entry_index = 0;
+	printf("OpD 3\n");
+
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
 	// que guarde globalmente tudo que precisamos de um diretório.
@@ -1302,7 +1329,7 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 		pointer_index = block_key - 2 - ppb - pointer_sector*pps*ppb;
 		pointer_sector = pointer_index / pps;
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp4 womp"));
-
+		// TODO: Bug here.
 		memcpy(record, &(buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES]), sizeof(T_RECORD));
 		return SUCCESS;
 	}

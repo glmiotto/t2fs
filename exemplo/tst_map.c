@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
     printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
   }
 
-  mount(3);
+  format2(0,2);
+  mount(0);
   BOLA_DA_VEZ* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
   mounted = get_mounted();
   T_SUPERBLOCK* sb = mounted->superblock;
@@ -43,19 +44,17 @@ int main(int argc, char *argv[]) {
   printf("Inode area size (in blocks): %d\n",sb->inodeAreaSize);
   printf("Block size (in sectors): %d\n",sb->blockSize);
   printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
-  printf("Checksum: %d", sb->Checksum);
+  printf("Checksum: %u\n", sb->Checksum);
 
   opendir2();
   T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
   int i=0;
-
-  while( i < mounted->root->max_entries){
+  printf("Max number of entries in root: %d\n", mounted->root->max_entries);
+  while( i < 10){
+    printf("\n REGISTRO #%d\n", i);
     map_index_to_record(i, rec);
     print_RECORD(rec);
-
+    i++;
   }
-
-
-
   return 0;
 }
