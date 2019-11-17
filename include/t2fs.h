@@ -131,6 +131,7 @@ int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
 int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry);
 
 void print_RECORD(T_RECORD* record);
+void report_superblock();
 
 DWORD map_inode_to_sector(int inode_index);
 DWORD map_block_to_sector(int block_index);

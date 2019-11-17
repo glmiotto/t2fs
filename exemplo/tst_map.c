@@ -19,12 +19,7 @@ int main(int argc, char *argv[]) {
     printf("%c",mbr_sector[j]);
   }
   MBR* mbr = (MBR*)malloc(sizeof(MBR));
-
   load_mbr(mbr_sector, mbr);
-
-  mount(1);
-
-
   printf("\nVersion: %d\n", mbr->version);
   printf("Sector size in bytes: %d\n", mbr->sector_size);
   printf("Initial Byte: %d\n", mbr->initial_byte);
@@ -35,8 +30,11 @@ int main(int argc, char *argv[]) {
     printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
     printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
   }
-  T_SUPERBLOCK* sb = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK));
-  load_superblock(mbr, sb);
+
+  mount(3);
+  BOLA_DA_VEZ* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
+  mounted = get_mounted();
+  T_SUPERBLOCK* sb = mounted->superblock;
   printf("Id: %s\n",sb->id);
   printf("Version: %d\n",sb->version);
   printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
@@ -48,8 +46,6 @@ int main(int argc, char *argv[]) {
   printf("Checksum: %d", sb->Checksum);
 
   opendir2();
-  BOLA_DA_VEZ* mounted;// = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
-  mounted = get_mounted();
   T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
   int i=0;
 

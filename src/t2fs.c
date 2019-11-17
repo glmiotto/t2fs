@@ -173,7 +173,7 @@ void report_superblock(){
 	printf("Inode area size (in blocks): %d\n",sb->inodeAreaSize);
 	printf("Block size (in sectors): %d\n",sb->blockSize);
 	printf("Disk size of partition (in blocks): %d\n",sb->diskSize);
-	printf("Checksum: %d", sb->Checksum);
+	printf("Checksum: %x", sb->Checksum);
 }
 
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
@@ -182,14 +182,23 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	sb->id[2] = bytes[1];
 	sb->id[1] = bytes[2];
 	sb->id[0] = bytes[3];
+	printf("BY2SPBK 1\n");
+
 	sb->version =	to_int(&(bytes[4]), 2);
 	sb->superblockSize = to_int(&(bytes[6]), 2);
 	sb->freeBlocksBitmapSize = to_int(&(bytes[8]), 2);
 	sb->freeInodeBitmapSize = to_int(&(bytes[10]), 2);
+	printf("BY2SPBK 3\n");
+
 	sb->inodeAreaSize = to_int(&(bytes[12]), 2);
 	sb->blockSize = to_int(&(bytes[14]), 2);
 	sb->diskSize = to_int(&(bytes[16]), 4);
+	printf("BY2SPBK 7\n");
+
 	sb->Checksum = to_int(&(bytes[20]), 4);
+	printf("BY2SPBK 8\n");
+
+
 	return SUCCESS;
 }
 
@@ -250,18 +259,32 @@ int identify2 (char *name, int size) {
 
 int initialize_superblock(int sectors_per_block) {
 	// Gets pointer to superblock for legibility
-	T_SUPERBLOCK* sb = mounted->superblock;
+	T_SUPERBLOCK* sb = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK));
+
+	sb = mounted->superblock;
+
+	printf("INIT_SB1\n");
 
 	int fst_sect = mounted->mbr_data->initial_sector;
 	int lst_sect  = mounted->mbr_data->final_sector;
 	int num_sectors = lst_sect - fst_sect + 1;
+	printf("INIT_SB2\n");
+
 
 	strncpy(sb->id, "T2FS", 4);
+	printf("INIT_SB3\n");
+
 	sb->version = 0x7E32;
+	printf("INIT_SB4\n");
+
 	sb->superblockSize = 1;
 	sb->blockSize = (WORD)sectors_per_block;
+	printf("INIT_SB5\n");
+
 	//Number of logical blocks in formatted disk.
 	sb->diskSize = (WORD)ceil(num_sectors/(float)sectors_per_block);
+	printf("INIT_SB6\n");
+
 	printf("num sectors %d\n", num_sectors);
 	printf("num sectors per block %d\n", sectors_per_block);
 	printf("disksize %d\n", sb->diskSize);
@@ -270,6 +293,9 @@ int initialize_superblock(int sectors_per_block) {
 	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize));
 	printf("inode Area Size %d\n", sb->inodeAreaSize);
 
+	printf("INIT_SB7\n");
+
+
 	/* ************* BITMAPS ************* */
 
 	// Total number of inodes is how many we fit into its area size.
@@ -277,15 +303,22 @@ int initialize_superblock(int sectors_per_block) {
 	mounted->total_inodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
 	mounted->total_inodes /= sizeof(T_INODE);
 
+	printf("INIT_SB8\n");
+
 	// inode bitmap size: 1 bit per inode given "X" inodes per block
 	float inode_bmap = (float)mounted->total_inodes;
 	// 1 bit per inode, now converted to number of blocks rounding up.
 	inode_bmap /= (float)(8*disk_mbr.sector_size*sectors_per_block);
 	sb->freeInodeBitmapSize = (WORD) ceil(inode_bmap);
 
+	printf("INIT_SB9\n");
+
 	// Total number of data blocks is dependent on size of its own bitmap!
 	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
 	data_blocks -= sb->freeInodeBitmapSize;
+
+	printf("INIT_SB10\n");
+
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
 	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
 	sb->freeBlocksBitmapSize = (WORD)
@@ -336,8 +369,14 @@ int load_superblock() {
 
 	mounted->superblock = (T_SUPERBLOCK*) malloc(sizeof(T_SUPERBLOCK));
 	BYTE* buffer = alloc_sector();
+	printf("LSB1\n");
+
 	if(read_sector(mounted->mbr_data->initial_sector, buffer)!= SUCCESS) return(failed("failed reading sb"));
+	printf("LSB2\n");
+
 	if(BYTE_to_SUPERBLOCK(buffer,mounted->superblock) !=SUCCESS) return FAILED;
+	printf("LSB3\n");
+
 	return SUCCESS;
 }
 
@@ -426,41 +465,50 @@ int initialize_bitmaps(){
 		return(failed("Init SetBitmaps fail 1."));
 
 	int valid_nodes = mounted->total_inodes;
-	int theoretical_nodes = sb->freeInodeBitmapSize*sb->blockSize*SECTOR_SIZE*8;
+	//int theoretical_nodes = sb->freeInodeBitmapSize*sb->blockSize*SECTOR_SIZE*8;
 
 	int bit;
+	printf("Free inode bits range: %d-%d\n", ROOT_INODE+1, valid_nodes);
 	for (bit = ROOT_INODE+1; bit < valid_nodes; bit++){
 		// Each bit after root is set to FREE
 		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
+			printf("bit ruim %d\n", bit);
 			return(failed("Failed to set a bit as free in inode bitmap"));
 		}
 	}
-
-	for (bit = valid_nodes; bit < theoretical_nodes; bit++){
-		// Each non-mappable bit is set to OCCUPIED forever
-		if(setBitmap2(BITMAP_INODES, bit, BIT_OCCUPIED) != SUCCESS) {
-			return(failed("Failed to set a theobit as occupied in inode bitmap"));
-		}
-	}
+	//
+	// for (bit = valid_nodes; bit < theoretical_nodes; bit++){
+	// 	// Each non-mappable bit is set to OCCUPIED forever
+	// 	if(setBitmap2(BITMAP_INODES, bit, BIT_OCCUPIED) != SUCCESS) {
+	// 		return(failed("Failed to set a theobit as occupied in inode bitmap"));
+	// 	}
+	// }
 
 	// Data bitmap:
 	// Since bitmap size is measured in blocks (rounding up),
 	// we first initialize valid bits to FREE
 	// and invalid ones to OCC (to forcibly limit access to non-existing disk area)
 	int valid_blocks = mounted->total_data_blocks;
-	int theoretical_blocks = sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8;
+	//int theoretical_blocks = sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8;
+	int pre_data_blocks =
+		sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
 
-	for (bit=0; bit < mounted->total_data_blocks; bit++) {
-		// total VALID blocks (addressable by the API)
-		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
-			return(failed("Failed to set bit as free in blocks bitmap"));
-		}
-	}
 
-	for (bit= valid_blocks; bit < theoretical_blocks; bit++) {
+	printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
+	for (bit= 0; bit < pre_data_blocks; bit++) {
 		// non addressable blocks are marked OCCUPIED forever
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			return(failed("Failed to set theobit as occupied in blocks bitmap"));
+			printf("bit ruim %d\n", bit);
+			return(failed("Failed to set reserved bit as occupied in blocks bitmap"));
+		}
+	}
+	int data_blocks_limit = pre_data_blocks+valid_blocks;
+	printf("Free data bits range: %d-%d\n", pre_data_blocks, data_blocks_limit);
+	for (bit= pre_data_blocks; bit < data_blocks_limit; bit++) {
+		// total VALID blocks (addressable by the API)
+		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
+			printf("bit ruim %d\n", bit);
+			return(failed("Failed to set bit as free in blocks bitmap"));
 		}
 	}
 
@@ -784,15 +832,19 @@ Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para
 int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
-
+	printf("F1\n");
+	mount(partition);
 	if(initialize_superblock(sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
-
+	printf("F2\n");
 	if(initialize_inode_area() != SUCCESS)
 		return(failed("Format2: Failed to initialize inode area"));
+	printf("F3\n");
 
 	if(initialize_bitmaps() != SUCCESS)
 		return(failed("Format2: Failed to initialize bitmap area"));
+	printf("F4\n");
+
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
 	// file data, directory files, and index blocks for big files.
@@ -848,11 +900,19 @@ int unmount(void) {
 	if(mounted == NULL){
 		return(failed("No partition to unmount."));
 	}
+	printf("Unm1\n");
+
 	if(closedir2() != SUCCESS){
 		return(failed("Unmount failed: could not close root dir."));
 	}
+	printf("Unm2\n");
+
 	free(mounted->superblock);
+	printf("Unm3\n");
+
 	free(mounted);
+	printf("Unm4\n");
+
 	return SUCCESS;
 }
 
