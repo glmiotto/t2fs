@@ -127,6 +127,7 @@ int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode);
 int INODE_to_BYTE(T_INODE* inode, BYTE* bytes);
 int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
 int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
+int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry);
 
 DWORD map_inode_to_sector(int inode_index);
 DWORD map_block_to_sector(int block_index);
