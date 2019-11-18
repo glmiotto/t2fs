@@ -1465,32 +1465,60 @@ int sln2 (char *linkname, char *filename) {
 	if (!is_mounted()) return failed("No partition mounted.");
 	if (!is_root_open()) return(failed("Directory must be opened."));
 	
+	DIRENT2* dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
+
 	// if file 'linkname' already exists
-	if (search_root_for_filename(mounted->root->inode, linkname) != NULL)
+	if (sweep_root_by_name(linkname, dirent) == SUCCESS && dirent != NULL)
 	{
 		printf("File %s already exists.\n", linkname);
 		return FAILED;
 	}
+
+	free(dirent);
+	dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
 	
 	// if file 'filename' doesnt exist
-	if (search_root_for_filename(mounted->root->inode, filename) == NULL)
+	if (sweep_root_by_name(filename, dirent) != SUCCESS && dirent == NULL)
 	{
 		printf("File %s doesn't exist.\n", filename);
 		return FAILED;
 	}
 
-	BYTE* sector = alloc_sector();	// TODO: qual o indice do setor?
+	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS){
+		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
+	}
 
-	memcpy(buffer, filename, sizeof(filename));
+	// aloca bloco para o arquivo
+	int indice_bloco = searchBitmap2(BITMAP_BLOCKS, BIT_FREE);
+	if (indice_bloco <= 0) return failed("Failed to read block.");
 
-	write_sector(indice_setor, buffer);	// TODO: qual o indice do setor?
+	int setor_inicial = indice_bloco * mounted->superblock->blockSize;
+	int base_particao = mounted->mbr_data->initial_sector;
+	
+	// // TODO: apagar conteudo do bloco?
+	// BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE)
+	// int i;
+	// for (i = 0; i < SECTOR_SIZE; i++)
+	// 	buffer[i] = 0;
+	// for (i = 0; i < mounted->superblock->blockSize; i++)
+	// 	write_sector(base_particao + setor_inicial + i, buffer);
+
+	// copia do nome do arquivo para o buffer
+	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
+	memcpy(buffer, filename, sizeof(char)*strlen(filename));
+
+	// escreve o bloco no disco
+	if (write_sector(base_particao + setor_inicial, buffer) != SUCCESS)
+		return failed("Failed to write sector");
+
+	int indice_inode = searchBitmap2(BITMAP_INODES, BIT_FREE);
+	if (indice_inode <= 0) return failed("Failed to read inode.");
 
 	// inicializacao do inode
 	T_INODE* inode;
 	inode->blocksFileSize = 1;
-	inode->bytesFileSize = sizeof(filename);
-	// TODO: qual o indice do setor?
-	inode->dataPtr[0] = indice_setor;
+	inode->bytesFileSize = sizeof(char)*strlen(Filename);
+	inode->dataPtr[0] = indice_bloco;
 	inode->dataPtr[1] = -1;
 	inode->singleIndPtr = -1;
 	inode->doubleIndPtr = -1;
