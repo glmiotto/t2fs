@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   }
   T_SUPERBLOCK* sb = (T_SUPERBLOCK*)malloc(sizeof(T_SUPERBLOCK));
   load_superblock(mbr, sb);
-  printf("Id: %s\n",sb->id);
+  printf("Id: %.*s\n", 4, sb->id); // 4 first chars only.
   printf("Version: %d\n",sb->version);
   printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
   printf("Free Blocks Bitmap Size(in blocks): %d\n",sb->freeBlocksBitmapSize);
@@ -47,4 +47,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-

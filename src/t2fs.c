@@ -176,7 +176,7 @@ void report_superblock(){
 	printf("********************************\n");
 	printf("Superblock info for partition %d\n", mounted->id);
 	T_SUPERBLOCK* sb = mounted->superblock;
-	printf("Id: %s\n",sb->id);
+	printf("Id: %.*s\n",4,sb->id); // Only the first 4 chars (there is no /0)
 	printf("Version: %d\n",sb->version);
 	printf("Superblock size(1 block, first in partition): %d\n",sb->superblockSize);
 	printf("Free Blocks Bitmap Size(in blocks): %d\n",sb->freeBlocksBitmapSize);
@@ -189,10 +189,12 @@ void report_superblock(){
 
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 
-	sb->id[3] = bytes[0];
-	sb->id[2] = bytes[1];
-	sb->id[1] = bytes[2];
-	sb->id[0] = bytes[3];
+
+	memcpy(sb->id, bytes, 4);
+	//sb->id[3] = bytes[0];
+	//sb->id[2] = bytes[1];
+//	sb->id[1] = bytes[2];
+//	sb->id[0] = bytes[3];
 	printf("BY2SPBK 1\n");
 
 	sb->version =	to_int(&(bytes[4]), 2);
@@ -281,7 +283,9 @@ int initialize_superblock(int sectors_per_block) {
 	printf("INIT_SB2\n");
 
 
-	strncpy(sb->id, "T2FS", 4);
+	//strncpy(sb->id, "T2FS", 4);
+	memcpy(sb->id, (char*)"T2FS", 4);
+
 	printf("INIT_SB3\n");
 
 	sb->version = 0x7E32;
@@ -348,6 +352,10 @@ int initialize_superblock(int sectors_per_block) {
 	printf("Total VALID data blocks: %d\n", mounted->total_data_blocks);
 	printf("Total theoretical data blocks: %d\n", sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8);
 
+print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	report_superblock();
+	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
 	save_superblock();
 	return SUCCESS;
 }
@@ -356,10 +364,12 @@ int save_superblock() {
 	// Gets pointer to application-space superblock
 	T_SUPERBLOCK* sb = mounted->superblock;
 	BYTE* output = alloc_sector();
-	output[0] = sb->id[3];
-	output[1] = sb->id[2];
-	output[2] = sb->id[1];
-	output[3] = sb->id[0];
+
+	memcpy(output, sb->id, 4);
+	//output[0] = sb->id[3];
+	//output[1] = sb->id[2];
+	//output[2] = sb->id[1];
+	//output[3] = sb->id[0];
 	strncpy((char*)&(output[4]), (char*)WORD_to_BYTE(sb->version, 2),2);
 	strncpy((char*)&(output[6]), (char*)WORD_to_BYTE(sb->superblockSize, 2),2);
 	strncpy((char*)&(output[8]), (char*)WORD_to_BYTE(sb->freeBlocksBitmapSize, 2),2);
@@ -381,11 +391,30 @@ int load_superblock() {
 	BYTE* buffer = alloc_sector();
 	printf("LSB1\n");
 
+	printf("->Reading sector %d (first in partition)\n", mounted->mbr_data->initial_sector);
+
 	if(read_sector(mounted->mbr_data->initial_sector, buffer)!= SUCCESS) return(failed("failed reading sb"));
 	printf("LSB2\n");
 
+	printf("->Sector in hex:\n");
+	for (int i = 0; i < sizeof(T_SUPERBLOCK); i++){
+		printf("%x ", buffer[i]);
+	}
+	printf("\n");
+	print("->Conversion Sector to Superblock:\n");
+	print("-->Conversion using BYTE_to_SUPERBLOCK:\n");
 	if(BYTE_to_SUPERBLOCK(buffer,mounted->superblock) !=SUCCESS) return FAILED;
-	printf("LSB3\n");
+	print("--Resulting structure:\n");
+	report_superblock();
+
+	//print("-->Conversion using memcpy:\n");
+	//memcpy(mounted->superblock, buffer, sizeof(T_SUPERBLOCK));
+	//print("--Resulting structure:\n");
+	//report_superblock();
+
+	//print("--->Conclusão, disco bugado sei la\n");
+	printf("LoadSB-Final\n");
+
 
 	return SUCCESS;
 }
