@@ -1460,7 +1460,54 @@ int closedir2 (void) {
 Função:	Função usada para criar um caminho alternativo (softlink)
 -----------------------------------------------------------------------------*/
 int sln2 (char *linkname, char *filename) {
-	return -1;
+
+	if (init() != SUCCESS) return failed("sln2: failed to initialize");
+	if (!is_mounted()) return failed("No partition mounted.");
+	if (!is_root_open()) return(failed("Directory must be opened."));
+	
+	// if file 'linkname' already exists
+	if (search_root_for_filename(mounted->root->inode, linkname) != NULL)
+	{
+		printf("File %s already exists.\n", linkname);
+		return FAILED;
+	}
+	
+	// if file 'filename' doesnt exist
+	if (search_root_for_filename(mounted->root->inode, filename) == NULL)
+	{
+		printf("File %s doesn't exist.\n", filename);
+		return FAILED;
+	}
+
+	BYTE* sector = alloc_sector();	// TODO: qual o indice do setor?
+
+	memcpy(buffer, filename, sizeof(filename));
+
+	write_sector(indice_setor, buffer);	// TODO: qual o indice do setor?
+
+	// inicializacao do inode
+	T_INODE* inode;
+	inode->blocksFileSize = 1;
+	inode->bytesFileSize = sizeof(filename);
+	// TODO: qual o indice do setor?
+	inode->dataPtr[0] = indice_setor;
+	inode->dataPtr[1] = -1;
+	inode->singleIndPtr = -1;
+	inode->doubleIndPtr = -1;
+	inode->RefCounter = 1;
+
+	// inicializacao da entrada no dir
+	T_RECORD* registro;
+	registro->TypeVal = TYPEVAL_LINK;
+	if (strlen(linkname) > 50) return failed("Linkname is too big.");
+	strcpy(registro->name, linkname);
+	registro->inodeNumber = indice_inode;
+
+	// TODO: escrever inode no disco
+
+	// ...
+
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------
