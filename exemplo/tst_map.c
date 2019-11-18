@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   }
 
 mount(0);
-unmount();
+umount();
 mount(0);
 report_superblock();
   BOLA_DA_VEZ* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));

@@ -742,8 +742,8 @@ int init_open_files(){
 	if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
 
 	if(mounted->root->open_files == NULL){
-		// Programação defensiva.
-		return(failed("Init OpenFiles failed"));
+		mounted->root->open_files =
+			(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
 	}
 
 	T_FOPEN* fopen = mounted->root->open_files;
@@ -902,7 +902,7 @@ int format2(int partition, int sectors_per_block) {
 		return(failed("Format2: Failed to initialize bitmap area"));
 	printf("F4\n");
 
-	unmount(); // TODO: verificar se mantem montado apos formatacao
+	umount(); // TODO: verificar se mantem montado apos formatacao
 	// mas acho que deve desmontar.
 
 	// Afterwards: the rest is data blocks.
@@ -952,7 +952,7 @@ int mount(int partition) {
 /*-----------------------------------------------------------------------------
 Função:	Desmonta a partição atualmente montada, liberando o ponto de montagem.
 -----------------------------------------------------------------------------*/
-int unmount(void) {
+int umount(void) {
 
 	if(mounted == NULL){
 		return(failed("No partition to unmount."));
@@ -1464,7 +1464,7 @@ int sln2 (char *linkname, char *filename) {
 	if (init() != SUCCESS) return failed("sln2: failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
 	if (!is_root_open()) return(failed("Directory must be opened."));
-	
+
 	DIRENT2* dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
 
 	// if file 'linkname' already exists
@@ -1476,7 +1476,7 @@ int sln2 (char *linkname, char *filename) {
 
 	free(dirent);
 	dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
-	
+
 	// if file 'filename' doesnt exist
 	if (sweep_root_by_name(filename, dirent) != SUCCESS && dirent == NULL)
 	{
@@ -1494,7 +1494,7 @@ int sln2 (char *linkname, char *filename) {
 
 	int setor_inicial = indice_bloco * mounted->superblock->blockSize;
 	int base_particao = mounted->mbr_data->initial_sector;
-	
+
 	// // TODO: apagar conteudo do bloco?
 	// BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE)
 	// int i;
@@ -1515,9 +1515,9 @@ int sln2 (char *linkname, char *filename) {
 	if (indice_inode <= 0) return failed("Failed to read inode.");
 
 	// inicializacao do inode
-	T_INODE* inode;
+	T_INODE* inode = (T_INODE*)malloc(sizeof(T_INODE));
 	inode->blocksFileSize = 1;
-	inode->bytesFileSize = sizeof(char)*strlen(Filename);
+	inode->bytesFileSize = sizeof(char)*strlen(filename);
 	inode->dataPtr[0] = indice_bloco;
 	inode->dataPtr[1] = -1;
 	inode->singleIndPtr = -1;
@@ -1525,9 +1525,10 @@ int sln2 (char *linkname, char *filename) {
 	inode->RefCounter = 1;
 
 	// inicializacao da entrada no dir
-	T_RECORD* registro;
+	T_RECORD* registro = (T_RECORD*)malloc(sizeof(T_RECORD));
 	registro->TypeVal = TYPEVAL_LINK;
-	if (strlen(linkname) > 50) return failed("Linkname is too big.");
+	if (strlen(linkname) > 51) return failed("Linkname is too big.");
+	// 51 contando o /0 da string
 	strcpy(registro->name, linkname);
 	registro->inodeNumber = indice_inode;
 
