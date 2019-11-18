@@ -111,7 +111,6 @@ int initialize_superblock(int sectors_per_block);
 int save_superblock();
 void calculate_checksum(T_SUPERBLOCK* sb);
 int init_open_files();
-
 //
 boolean is_root_open(void);
 boolean is_root_loaded();

@@ -20,12 +20,8 @@ MBR 					disk_mbr;
 BOLA_DA_VEZ*	mounted;
 T_INODE 			dummy_inode;
 
-// old variables to be removed when compiling errors stop
-T_FOPEN 			open_files[MAX_FILES_OPEN];
-
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
-int fopen_count;
 boolean t2fs_initialized = false;
 
 /* **************************************************************** */
@@ -170,10 +166,6 @@ int init(){
 	// Read disk master boot record into application space
 	if(load_mbr(master_sector, &disk_mbr) != SUCCESS) {
 		return failed("Fu"); }
-
-	//  Initialize open files
-	if(init_open_files() != SUCCESS) {
-		return failed("Failed to initialize open files");	}
 
 	mounted = NULL;
 	t2fs_initialized = true;
@@ -661,12 +653,12 @@ unsigned char* get_block(int sector, int offset, int n)
 
 
 
-T_INODE* search_root_for_filename(T_INODE* root, char* filename)
+T_INODE* search_root_for_filename(char* filename)
 {
 	return 0;
 }
 
-T_INODE* new_file(T_INODE* root, char* filename)
+T_INODE* new_file(char* filename)
 {
 	//cria registro
 	T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
@@ -684,42 +676,83 @@ T_INODE* new_file(T_INODE* root, char* filename)
 	return NULL;
 }
 
-int set_file_open(T_INODE* f)
+int set_file_open(T_INODE* file_inode)
 {
 
-	for(int i=0; i <= MAX_FILES_OPEN; i++)
-	{
-		if(open_files[i].inode==NULL)
-		{
-			open_files[i].inode = f;
-			open_files[i].current_pointer = 0;
-
-			return i;
-		}
-
+	if (!is_mounted())   return(failed("SetFileOpen failed 1"));
+	if (!is_root_open()) return(failed("SetFileOpen failed 2"));
+	if(mounted->root->open_files == NULL){
+		// Programação defensiva.
+		return(failed("SetFileOpen failed 3"));
 	}
 
-	return -1;
+	T_FOPEN* fopen = mounted->root->open_files;
+
+	if (mounted->root->num_open_files >= MAX_FILES_OPEN){
+		print("Maximum number of open files reached.");
+		return FAILED;
+	}
+
+	for(int i=0; i < MAX_FILES_OPEN; i++){
+		if(fopen[i].inode == NULL){
+
+			fopen[i].handle 				 = i;
+			fopen[i].inode 					 = file_inode;
+			fopen[i].current_pointer = 0;
+			fopen[i].inode_index 		 = -1;
+			// TODO!!! tem que achar o inode index junto com o inode
+			// para salvar no arquivo aberto.
+
+			mounted->root->num_open_files++;
+			return i;
+		}
+	}
+	return FAILED;
 }
 
 int set_file_close(FILE2 handle)
 {
-	if(handle >= MAX_FILES_OPEN || handle < 0)
+	if(handle >= MAX_FILES_OPEN || handle < 0){
+		print("Handle out of bounds.");
 		return FAILED;
+	}
+	if (!is_mounted())   return(failed("SetFileClose failed 1"));
+	if (!is_root_open()) return(failed("SetFileClose failed 2"));
+	if(mounted->root->open_files == NULL){return(failed("SetFileClose failed 3"));}
 
+	T_FOPEN* fopen = mounted->root->open_files;
 
-	open_files[handle].inode = NULL;
-	open_files[handle].current_pointer = -1;
+	if(fopen[handle].inode == NULL) {
+		print("File handle does not correspond to an open file.");
+	}
+	else mounted->root->num_open_files--;
+
+	// In either case, overwriting fopen data to make sure.
+	fopen[handle].inode 				  = NULL;
+	fopen[handle].current_pointer = -1;
+	fopen[handle].inode_index 		=	-1;
+	// TODO nao sei se botamos o handle -1 tbm só pra garantir
 
 	return SUCCESS;
 }
 
-int init_open_files()
-{
-	for(int i=0; i < MAX_FILES_OPEN; i++)
-	{
-		open_files[i].inode = NULL;
-		open_files[i].current_pointer = -1;
+int init_open_files(){
+
+	if(!is_mounted()) return FAILED;
+	if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
+
+	if(mounted->root->open_files == NULL){
+		// Programação defensiva.
+		return(failed("Init OpenFiles failed"));
+	}
+
+	T_FOPEN* fopen = mounted->root->open_files;
+	int i;
+	for(i=0; i < MAX_FILES_OPEN; i++){
+		fopen[i].inode = NULL;
+		fopen[i].current_pointer = -1;
+		fopen[i].handle = i; // TODO: ou entao botar um handle invalido ate ser usado
+
 	}
 	return SUCCESS;
 }
@@ -831,7 +864,7 @@ int remove_file_content(T_INODE* inode)
 	return SUCCESS;
 }
 
-int remove_record(T_INODE* root, char* filename)
+int remove_record(char* filename)
 {
 
 	int superbloco_sector = mounted->mbr_data->initial_sector;
@@ -855,7 +888,9 @@ int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
 	printf("F1\n");
+	// Mount partition first.
 	mount(partition);
+	// Initialize the partition starting area.
 	if(initialize_superblock(sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
 	printf("F2\n");
@@ -867,12 +902,12 @@ int format2(int partition, int sectors_per_block) {
 		return(failed("Format2: Failed to initialize bitmap area"));
 	printf("F4\n");
 
+	unmount(); // TODO: verificar se mantem montado apos formatacao
+	// mas acho que deve desmontar.
+
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
 	// file data, directory files, and index blocks for big files.
-	// OBS: precisa atualizar algo no MBR apos dar format na particao??
-	// ID do superbloco eh id do filesystem usado
-	// nome da particao no MBR acho que eh outra coisa.
 	return SUCCESS;
 }
 
@@ -939,7 +974,7 @@ int unmount(void) {
 
 	free(mounted);
 	mounted = NULL;
-	
+
 	printf("Unmnt. Last\n");
 
 
@@ -958,14 +993,17 @@ FILE2 create2 (char *filename) {
 	if(!is_mounted()) return(failed("No partition mounted."));
 	if(!is_root_open()) return(failed("Directory must be opened."));
 
-	T_INODE* root = mounted->root->inode;
-
-	T_INODE* f = search_root_for_filename(root, filename);
+// OBS: tirei o inode root pq agora ta implicito que é
+// aquele em mounted->root
+// OBS2: acho que ja implementei essa funcao abaixo com outro nome
+// int sweep_root_by_name(char* filename, DIRENT2* dentry);
+// se funciona? nn sei
+	T_INODE* f = search_root_for_filename(filename);
 
 	if(f != NULL)
 		return FAILED;
 
-	T_INODE* f2 = new_file(root, filename);
+	T_INODE* f2 = new_file(filename);
 
 	FILE2 handle = set_file_open(f2);
 	return handle;
@@ -979,13 +1017,13 @@ int delete2 (char *filename) {
 	if(!is_mounted()) return(failed("No partition mounted."));
 	if(!is_root_open()) return(failed("Directory must be opened."));
 
-	T_INODE* root = mounted->root->inode;
-
-	T_INODE* f = search_root_for_filename(root, filename);
+	// OBS: tirei o inode root pq agora ta implicito que é
+	// aquele em mounted->root
+	// OBS2: acho que ja implementei essa funcao abaixo com outro nome
+	T_INODE* f = search_root_for_filename(filename);
 
 	remove_file_content(f);
-
-	remove_record(root, filename);
+	remove_record(filename);
 
 	return SUCCESS;
 }
@@ -998,12 +1036,10 @@ FILE2 open2 (char *filename) {
 	if(!is_mounted()) return(failed("No partition mounted."));
 	if(!is_root_open()) return(failed("Directory must be opened."));
 
-
-	T_INODE* root = mounted->root->inode;
-	if(root==NULL)
+	if(mounted->root->inode==NULL)
 		return FAILED;
 
-	T_INODE* f = search_root_for_filename(root, filename);
+	T_INODE* f = search_root_for_filename(filename);
 	if(f==NULL)
 		return FAILED;
 
@@ -1057,6 +1093,14 @@ int opendir2 (void) {
 	mounted->root->open = true;
 	mounted->root->entry_index = 0;
 	printf("OpD 3\n");
+
+	//  Initialize open files
+	if(init_open_files() != SUCCESS) {
+		return failed("Failed to initialize open files");	}
+
+  printf("OpDir final\n");
+
+
 
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
