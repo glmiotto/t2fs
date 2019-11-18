@@ -50,13 +50,16 @@ report_superblock();
 
   opendir2();
   T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
-  int i=0;
+  int i=14;
   printf("Max number of entries in root: %d\n", mounted->root->max_entries);
-  while( i < 10){
+  while( i < 22){
     printf("\n REGISTRO #%d\n", i);
     map_index_to_record(i, rec);
     print_RECORD(rec);
     i++;
   }
+
+  closedir2();
+
   return 0;
 }

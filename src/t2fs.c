@@ -23,6 +23,7 @@ T_INODE 			dummy_inode;
 // Maximum of 10 open file handles at once
 //(***can be same file multiple times!!!)
 boolean t2fs_initialized = false;
+boolean debugging = true;
 
 /* **************************************************************** */
 
@@ -217,7 +218,7 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 	if (record == NULL || dentry == NULL) return FAILED;
 
-	strncpy(dentry->name, record->name, 51);
+	memcpy(dentry->name, record->name, 51);
 	dentry->fileType = (DWORD) record->TypeVal;
 	// TODO: tamanho do arquivo, usando o inode number do RECORD_to_DIRENT
 	//dentry->fileSize = (DWORD) ...
@@ -1353,12 +1354,12 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 	if(!is_mounted()) 	return(failed("MITR no partition mounted yet."));
 	if(!is_root_open()) return(failed("MITR root not even loaded"));
 
-	T_DIRECTORY* rt = mounted->root;
+	T_DIRECTORY*  rt = mounted->root;
 	T_SUPERBLOCK* sb = mounted->superblock;
 
-	if(index < 0) 							 		return(failed("MITR bad negative index"));
-	if(index >= rt->max_entries) 		return(failed("MITR bad positive index"));
-	if (rt->inode->dataPtr < (DWORD*) 1) return(failed("MITR boo"));
+	if(index < 0) 							 		 return(failed("MITR bad negative index"));
+	if(index >= rt->max_entries) 		 return(failed("MITR bad positive index"));
+	if(rt->inode->dataPtr<(DWORD*)1) return(failed("MITR boo"));
 
 	DWORD epb = mounted->entries_per_block;
 	DWORD eps = epb / sb->blockSize; // TODO :isso ta certo?
@@ -1382,20 +1383,47 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 	if(block_key < 2){
 		entry_block = rt->inode->dataPtr[block_key];
 		offset = entry_block * sb->blockSize;
+
+		if(debugging){
+			printf("Indice da entrada: %u\n", index);
+			printf("Map to direct pointer\n");
+			printf("Bloco de entradas = %u\n", block_key);
+			printf("Sector index in Blocos de entradas  = %u\n", sector_key);
+			printf("Shift nesse setor  = %u\n", sector_shift);
+			printf("Setor absoluto lido = %u\n", offset+sector_key);
+		}
 		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp womp"));
 
 		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
 		return SUCCESS;
 	}
-	else if (block_key < ppb){
+	else if (block_key < 2+ppb){
 		index_block = rt->inode->singleIndPtr;
 		offset = index_block * sb->blockSize;
 		DWORD pointer_index = block_key - 2;
 		DWORD pointer_sector = pointer_index / pps;
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp2 womp"));
 
-		memcpy(record, &(buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES]), sizeof(T_RECORD));
+
+		entry_block = buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES];
+		printf("ENTRY BLOCK after indirection: %x\n", entry_block);
+		offset = entry_block * sb->blockSize;
+
+		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp40 womp"));
+		if(debugging){
+			printf("Indice da entrada: %u\n", index);
+			printf("Map to 1-indirect pointer\n");
+			printf("Ponteiro indireto para bloco de indices = %u\n", pointer_index);
+			printf("Ponteiro no setor %u, com shift interno %u\n",pointer_sector,pointer_index%pps);
+			printf("Bloco de entradas = %u\n", block_key);
+			printf("Sector index in Blocos de entradas  = %u\n", sector_key);
+			printf("Shift nesse setor  = %u\n", sector_shift);
+			printf("Setor absoluto lido = %u\n", offset+sector_key);
+		}
+
+		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
 		return SUCCESS;
+
 	}
 
 	else {
