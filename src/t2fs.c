@@ -1382,7 +1382,7 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 	// numPointersPerBlock*numEntriesPerBlock to max_entries.
 	if(block_key < 2){
 		entry_block = rt->inode->dataPtr[block_key];
-		offset = entry_block * sb->blockSize;
+		offset = mounted->mbr_data->initial_sector + entry_block * sb->blockSize;
 
 		if(debugging){
 			printf("Indice da entrada: %u\n", index);
@@ -1399,7 +1399,7 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 	}
 	else if (block_key < 2+ppb){
 		index_block = rt->inode->singleIndPtr;
-		offset = index_block * sb->blockSize;
+		offset = mounted->mbr_data->initial_sector + index_block * sb->blockSize;
 		DWORD pointer_index = block_key - 2;
 		DWORD pointer_sector = pointer_index / pps;
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp2 womp"));
@@ -1407,7 +1407,7 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 
 		entry_block = buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES];
 		printf("ENTRY BLOCK after indirection: %x\n", entry_block);
-		offset = entry_block * sb->blockSize;
+		offset = mounted->mbr_data->initial_sector + entry_block * sb->blockSize;
 
 		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp40 womp"));
 		if(debugging){
@@ -1428,18 +1428,29 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 
 	else {
 		DWORD double_index_block = rt->inode->doubleIndPtr;
-		offset = double_index_block * sb->blockSize;
+		offset = mounted->mbr_data->initial_sector + double_index_block * sb->blockSize;
 		DWORD pointer_index  = block_key - 2 - ppb;
-		DWORD pointer_sector = (pointer_index / pps) / pps;
-		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp3 womp"));
 
-		index_block = to_int(&(buffer[((pointer_index / pps) % pps)*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
-		offset = index_block * sb->blockSize;
-		pointer_index = block_key - 2 - ppb - pointer_sector*pps*ppb;
+
+		DWORD pointer_sector_dind = pointer_index/(ppb*ppb) / pps;
+		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS) return(failed("Womp3 womp"));
+		index_block = to_int(&(buffer[((pointer_index/(ppb*ppb)) % pps)*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
+
+
+		 //(pointer_index / pps) ;// pps;
+
+		offset = mounted->mbr_data->initial_sector+ index_block * sb->blockSize;
+		pointer_index = block_key - 2 - ppb - pointer_sector_dind*pps*ppb*epb;
 		pointer_sector = pointer_index / pps;
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp4 womp"));
 		// TODO: Bug here.
-		memcpy(record, &(buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES]), sizeof(T_RECORD));
+		entry_block = (DWORD)buffer[(pointer_sector% pps)*DATA_PTR_SIZE_BYTES];
+		//memcpy entryblock dword <-buffer uchars
+		offset = mounted->mbr_data->initial_sector+ entry_block * sb->blockSize;
+		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp Womp 9000"));
+
+		emcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
+		//ufa. 
 		return SUCCESS;
 	}
 	return FAILED;
