@@ -1657,7 +1657,7 @@ int sln2 (char *linkname, char *filename) {
 
 	if (init() != SUCCESS) return failed("sln2: failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_open()) return(failed("Directory must be opened."));
+	if (!is_root_open()) return failed("Directory must be opened.");
 
 	DIRENT2* dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
 
@@ -1678,13 +1678,13 @@ int sln2 (char *linkname, char *filename) {
 		return FAILED;
 	}
 
-	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS){
+	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS)
 		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
-	}
 
 	// aloca bloco para o arquivo
 	int indice_bloco = searchBitmap2(BITMAP_BLOCKS, BIT_FREE);
 	if (indice_bloco <= 0) return failed("Failed to read block.");
+	if (setBitmap2(BITMAP_BLOCKS, indice_bloco, BIT_OCCUPIED)) return failed("Failed to set bitmap");
 
 	int setor_inicial = indice_bloco * mounted->superblock->blockSize;
 	int base_particao = mounted->mbr_data->initial_sector;
@@ -1702,11 +1702,15 @@ int sln2 (char *linkname, char *filename) {
 	memcpy(buffer, filename, sizeof(char)*strlen(filename));
 
 	// escreve o bloco no disco
+	// TODO: ta escrevendo apenas um setor
 	if (write_sector(base_particao + setor_inicial, buffer) != SUCCESS)
 		return failed("Failed to write sector");
 
 	int indice_inode = searchBitmap2(BITMAP_INODES, BIT_FREE);
 	if (indice_inode <= 0) return failed("Failed to read inode.");
+	if (setBitmap2(BITMAP_INODES, indice_inode, BIT_OCCUPIED)) return failed("Failed to set bitmap");
+
+	if (closeBitmap2() != SUCCESS) return failed("Failed to close bitmaps");
 
 	// inicializacao do inode
 	T_INODE* inode = (T_INODE*)malloc(sizeof(T_INODE));
@@ -1737,5 +1741,52 @@ int sln2 (char *linkname, char *filename) {
 Função:	Função usada para criar um caminho alternativo (hardlink)
 -----------------------------------------------------------------------------*/
 int hln2(char *linkname, char *filename) {
-	return -1;
+
+	if (init() != SUCCESS) return failed("hln2: failed to initialize");
+	if (!is_mounted()) return failed("No partition mounted.");
+	if (!is_root_open()) return failed("Directory must be opened.");
+
+	DIRENT2* dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
+
+	// if file 'linkname' already exists
+	if (sweep_root_by_name(linkname, dirent) == SUCCESS && dirent != NULL)
+	{
+		printf("File %s already exists.\n", linkname);
+		return FAILED;
+	}
+
+	free(dirent);
+	dirent = (DIRENT2*)malloc(sizeof(DIRENT2));
+
+	// if file 'filename' doesnt exist
+	if (sweep_root_by_name(filename, dirent) != SUCCESS && dirent == NULL)
+	{
+		printf("File %s doesn't exist.\n", filename);
+		return FAILED;
+	}
+
+	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS)
+		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
+
+	int indice_inode = search_inode_by_filename(filename);
+
+	// abre inode do arquivo 'filename'
+	T_INODE* inode = (T_INODE*)malloc(sizeof(T_INODE));
+	inode = open_inode_by_index(indice_inode);
+	// apenas incrementa o contador de referencias
+	inode->RefCounter += 1;
+
+	// inicializacao da entrada no dir
+	T_RECORD* registro = (T_RECORD*)malloc(sizeof(T_RECORD));
+	registro->TypeVal = TYPEVAL_LINK;
+	if (strlen(linkname) > 51) return failed("Linkname is too big.");
+	// 51 contando o /0 da string
+	strcpy(registro->name, linkname);
+	registro->inodeNumber = indice_inode;
+
+	// TODO: escrever inode no disco
+
+	// ...
+
+	return SUCCESS;
 }
