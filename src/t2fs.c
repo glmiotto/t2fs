@@ -1430,31 +1430,34 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 		offset = mounted->mbr_data->initial_sector + double_index_block * sb->blockSize;
 		DWORD pointer_index  = block_key - 2 - ppb;
 
-		DWORD pointer_sector_dind = pointer_index/(ppb*ppb) / pps;
-		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS) return(failed("Womp3 womp"));
-		index_block = to_int(&(buffer[((pointer_index/(ppb*ppb)) % pps)*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
+		//DWORD pointer_sector_dind = pointer_index/(ppb*ppb) / pps;
+		DWORD pointer_sector_dind = pointer_index/ppb/pps;
+		if(debugging){
+			printf("DOUBLE||| Entry: %u \n", index);
+			printf("NroPtrD: %u | ", pointer_index/ppb);
+			printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,pointer_sector_dind % pps);
+		}
+		printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
 
-		 //(pointer_index / pps) ;// pps;
+		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS) return(failed("Womp3 womp"));
+		index_block = (DWORD)buffer[((pointer_index/ppb) % pps)*DATA_PTR_SIZE_BYTES];
 
 		offset = mounted->mbr_data->initial_sector+ index_block * sb->blockSize;
-		pointer_index = block_key - 2 - ppb - pointer_sector_dind*pps*ppb*epb;
+		pointer_index = block_key - 2 - ppb - pointer_sector_dind*pps; //*ppb*epb
 		DWORD pointer_sector = pointer_index / pps;
 
 		if(debugging){
-			printf("DOUBLE||| Entry: %u \n", index);
-			printf("NroPtrD: %u | ", pointer_index);
-			printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,(pointer_index/(ppb*ppb)) % pps);
 			printf("NroPtrS: %u | ", pointer_index);
-			printf("SetorPtrS %u | ItemPtrS %u \n",pointer_sector, pointer_sector% pps);
+			printf("SetorPtrS %u | ItemPtrS %u \n",pointer_sector, pointer_index% pps);
 		}
+		//if(read_sector(offset+pointer_sector%ppb, buffer) != SUCCESS) return(failed("Womp4 womp"));
+		printf("Vou ler offset: %u e setor %u\n", offset, ((pointer_index%ppb) / pps));
+		if(read_sector(offset+((pointer_index%ppb) / pps), buffer) != SUCCESS) return(failed("Womp4 womp"));
 
-		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp4 womp"));
-		// TODO: Bug here.
-		entry_block = (DWORD)buffer[(pointer_sector% pps)*DATA_PTR_SIZE_BYTES];
+		// TODO: Bug here?
+		entry_block = (DWORD)buffer[(pointer_index% pps)*DATA_PTR_SIZE_BYTES];
 		//memcpy entryblock dword <-buffer uchars
 		offset = mounted->mbr_data->initial_sector+ entry_block * sb->blockSize;
-		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp Womp 9000"));
-
 		if(debugging){
 			printf("Bloco %u | ", block_key);
 			printf("Setor: %u | ", sector_key);
@@ -1462,7 +1465,12 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 			printf("Setor absoluto = %u\n", offset+sector_key);
 		}
 
-		//emcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
+		printf("Vou ler offset: %u e setor %u\n", offset, sector_key);
+
+		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp Womp 9000"));
+
+
+		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
 
 		return SUCCESS;
 	}

@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
   printf("Sector size in bytes: %d\n", mbr->sector_size);
   printf("Initial Byte: %d\n", mbr->initial_byte);
   printf("# Partitions: %d\n", mbr->num_partitions);
-
+	int j;
   for (j=0; j < mbr->num_partitions; j++){
     printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
     printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
@@ -36,9 +36,19 @@ int main(int argc, char *argv[]) {
   T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
   int i;
   //mounted->root->max_entries
-  for (i=0; i < 30; i++){
+  for (i=1037; i < 1050; i++){
     map_index_to_record(i, rec);
   }
+  for (i=8*128 + 16 + 8*128 - 2; i < 8*128 + 16 + 8*128 + 5; i++){
+    map_index_to_record(i, rec);
+  }
+
+
+  for (i=132100; i < 132112; i++){
+    map_index_to_record(i, rec);
+  }
+
+
 
   closedir2();
 
