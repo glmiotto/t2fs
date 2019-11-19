@@ -209,8 +209,8 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	memcpy(sb->id, bytes, 4);
 	//sb->id[3] = bytes[0];
 	//sb->id[2] = bytes[1];
-//	sb->id[1] = bytes[2];
-//	sb->id[0] = bytes[3];
+	//sb->id[1] = bytes[2];
+	//sb->id[0] = bytes[3];
 	printf("BY2SPBK 1\n");
 
 	sb->version =	to_int(&(bytes[4]), 2);
@@ -259,7 +259,7 @@ int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 	printf("Initialized.\n");
 
 	format2(0, 4);
-	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
+	BYTE* buffer = alloc_sector();
 	printf("Reading sector from disk...\n");
 	int j = 0;
 	printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
@@ -371,7 +371,7 @@ int initialize_superblock(int sectors_per_block) {
 	printf("Total VALID data blocks: %d\n", mounted->total_data_blocks);
 	printf("Total theoretical data blocks: %d\n", sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8);
 
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	report_superblock();
 	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
@@ -451,7 +451,7 @@ int load_mbr(BYTE* master_sector, MBR* mbr) {
 		mbr->disk_partitions[i].final_sector = to_int(&(master_sector[j+4]),4);
 		strncpy((char*)mbr->disk_partitions[i].partition_name, (char*)&(master_sector[j+8]), 24);
 	}
-return SUCCESS;
+	return SUCCESS;
 }
 
 void calculate_checksum(T_SUPERBLOCK* sb) {
@@ -684,8 +684,7 @@ int save_new_inode(T_INODE* inode){
 	return SUCCESS;
 }
 /*-----------------------------------------------------------------------------*/
-unsigned char* get_block(int sector, int offset, int n)
-{
+unsigned char* get_block(int sector, int offset, int n){
 	if(offset > SECTOR_SIZE)
 		return NULL;
 
@@ -701,8 +700,7 @@ unsigned char* get_block(int sector, int offset, int n)
 
 
 
-T_INODE* search_root_for_filename(char* filename)
-{
+T_INODE* search_root_for_filename(char* filename){
 	return 0;
 }
 
@@ -926,8 +924,7 @@ int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data
 
 
 
-int remove_file_content(T_INODE* inode)
-{
+int remove_file_content(T_INODE* inode){
 	int superbloco_sector = mounted->mbr_data->initial_sector;
 
 	if(openBitmap2(superbloco_sector) != SUCCESS)
@@ -959,8 +956,7 @@ int remove_file_content(T_INODE* inode)
 	return SUCCESS;
 }
 
-int remove_record(char* filename)
-{
+int remove_record(char* filename){
 
 	int superbloco_sector = mounted->mbr_data->initial_sector;
 
@@ -1087,17 +1083,17 @@ Função:	Função usada para criar um novo arquivo no disco e abrí-lo,
 		assumirá um tamanho de zero bytes.
 -----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename) {
-// int create2 (char *filename) {
+	// int create2 (char *filename) {
 	if (init() != SUCCESS) return(failed("create2: failed to initialize"));
 	if(!is_mounted()) return(failed("No partition mounted."));
 	// if(!is_root_open()) return(failed("Directory must be opened."));
 	if(opendir2() != SUCCESS) return(failed("Directory must be opened."));
 
-// OBS: tirei o inode root pq agora ta implicito que é
-// aquele em mounted->root
-// OBS2: acho que ja implementei essa funcao abaixo com outro nome
-// int sweep_root_by_name(char* filename, DIRENT2* dentry);
-// se funciona? nn sei
+	// OBS: tirei o inode root pq agora ta implicito que é
+	// aquele em mounted->root
+	// OBS2: acho que ja implementei essa funcao abaixo com outro nome
+	// int sweep_root_by_name(char* filename, DIRENT2* dentry);
+	// se funciona? nn sei
 
 	// T_INODE* f = search_root_for_filename(filename);
 
@@ -1354,11 +1350,6 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 	}
 	return 0;
 }
-
-int sweep_root_by_index(int index, DIRENT2* dentry) {
-	return FAILED;
-}
-
 
 //TODO
 
@@ -1698,7 +1689,7 @@ int sln2 (char *linkname, char *filename) {
 	// 	write_sector(base_particao + setor_inicial + i, buffer);
 
 	// copia do nome do arquivo para o buffer
-	BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE);
+	BYTE* buffer = alloc_sector();
 	memcpy(buffer, filename, sizeof(char)*strlen(filename));
 
 	// escreve o bloco no disco
@@ -1728,9 +1719,10 @@ int sln2 (char *linkname, char *filename) {
 	if (strlen(linkname) > 51) return failed("Linkname is too big.");
 	// 51 contando o /0 da string
 	strcpy(registro->name, linkname);
+	memset(registro->name, '\0', sizeof(registro->name));
 	registro->inodeNumber = indice_inode;
 
-	// TODO: escrever inode no disco
+	// TODO: escrever inode no disco e entrada no dir
 
 	// ...
 
@@ -1765,9 +1757,6 @@ int hln2(char *linkname, char *filename) {
 		return FAILED;
 	}
 
-	if(openBitmap2(mounted->mbr_data->initial_sector) != SUCCESS)
-		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
-
 	int indice_inode = search_inode_by_filename(filename);
 
 	// abre inode do arquivo 'filename'
@@ -1784,7 +1773,7 @@ int hln2(char *linkname, char *filename) {
 	strcpy(registro->name, linkname);
 	registro->inodeNumber = indice_inode;
 
-	// TODO: escrever inode no disco
+	// TODO: escrever entrada no dir
 
 	// ...
 

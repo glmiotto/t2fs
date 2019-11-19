@@ -145,7 +145,6 @@ int max_entries_in_block();
 
 int access_inode(int inode_index, T_INODE* return_inode);
 int find_entry(int partition, int entry_block, char* filename);
-int sweep_root_by_index(int index, DIRENT2* dentry);
 int sweep_root_by_name(char* filename, DIRENT2* dentry);
 
 /* **************************************************************** */
