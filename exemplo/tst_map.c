@@ -10,14 +10,31 @@
 
 int main(int argc, char *argv[]) {
 
-  printf("Hello World\n");
+  // printf("Hello World\n");
 
   BYTE* mbr_sector = (BYTE*) malloc(SECTOR_SIZE);
   read_sector(0, mbr_sector);
 	int j;
   for(j=0; j<SECTOR_SIZE; j++){
-    printf("%c",mbr_sector[j]);
+    printf("%x ",mbr_sector[j]);
   }
+  printf("\n-------------------\n");
+
+  // BYTE* mbr_sector2 = (BYTE*) malloc(SECTOR_SIZE);
+  // read_sector(0, mbr_sector2);
+  // for(j=0; j<SECTOR_SIZE; j++){
+  //   printf("%x ",mbr_sector2[j]);
+  // }
+  // printf("\n-------------------\n");
+
+
+  //   BYTE* mbr_sector3 = (BYTE*) malloc(SECTOR_SIZE);
+  // read_sector(0, mbr_sector3);
+  // for(j=0; j<SECTOR_SIZE; j++){
+  //   printf("%x ",mbr_sector3[j]);
+  // }
+
+
   MBR* mbr = (MBR*)malloc(sizeof(MBR));
   load_mbr(mbr_sector, mbr);
   printf("\nVersion: %d\n", mbr->version);

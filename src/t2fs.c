@@ -188,6 +188,21 @@ void report_superblock(){
 	printf("Checksum: %u\n", sb->Checksum);
 }
 
+void report_open_files(){
+	printf("********************************\n");
+	printf("Reporting open files: \n");
+	for(int i=0; i< MAX_FILES_OPEN; i++){
+		printf("Position: %d\n", i);
+		printf("File inode: %p\n", mounted->root->open_files[i].inode);
+		printf("File pointer: %d\n", mounted->root->open_files[i].current_pointer);
+		printf("File handle: %d\n", mounted->root->open_files[i].handle);
+		printf("\n");
+	}
+	printf("********************************\n");
+}
+
+
+
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 
 
@@ -220,6 +235,9 @@ int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 
 	memcpy(dentry->name, record->name, 51);
 	dentry->fileType = (DWORD) record->TypeVal;
+
+	// dentry->inodeNumber = 
+
 	// TODO: tamanho do arquivo, usando o inode number do RECORD_to_DIRENT
 	//dentry->fileSize = (DWORD) ...
 	return SUCCESS;
@@ -688,22 +706,63 @@ T_INODE* search_root_for_filename(char* filename)
 	return 0;
 }
 
+//writes new record to the MFD
+void write_record(T_RECORD* rec){
+	char* buffer = (char*) malloc(sizeof(T_RECORD));
+	memcpy(buffer, rec, sizeof(T_RECORD));
+	write2(0, buffer, sizeof(T_RECORD));
+}
+
+//allocates new inode to the MFD
+int allocate_inode(T_INODE* inode){
+	int superbloco_sector = mounted->mbr_data->initial_sector;
+
+	if(openBitmap2(superbloco_sector) != SUCCESS)
+		return FAILED;
+
+	// search for free 
+	int free_inode_block = searchBitmap2(0, 0);
+
+	if(closeBitmap2() != SUCCESS)
+		return FAILED;
+
+	return free_inode_block;
+}
+
 T_INODE* new_file(char* filename)
 {
-	//cria registro
+	// new file - inode creation
+	T_INODE* inode = (T_INODE*)malloc(sizeof(T_INODE));
+	inode->blocksFileSize=0;
+	inode->bytesFileSize=0;
+	inode->dataPtr[0]=0;
+	inode->dataPtr[1]=0;
+	inode->singleIndPtr=0;
+	inode->doubleIndPtr=0;
+	inode->RefCounter=0;
+	
+	// needs to be fixed
+	int inode_index = allocate_inode(inode);
+	if(inode_index <= 0){
+		return NULL;
+	}
+
+	// new file - record creation
 	T_RECORD* rec = (T_RECORD*)malloc(sizeof(T_RECORD));
 	rec->TypeVal=0x01;
 
 	memset(rec->name, '\0', sizeof(rec->name));
 	strcpy(rec->name, filename);
 
-	// identificador de inode
-	rec->inodeNumber=0;
+	// identificador de inode,
+	// rec->inodeNumber=0;
+	rec->inodeNumber=inode_index;
 
-	//adiciona registro em diretorio
-	//write2() ?
+	//adds record to mfd entries
+	write_record(rec);
 
-	return NULL;
+
+	return inode;
 }
 
 int set_file_open(T_INODE* file_inode)
@@ -724,12 +783,14 @@ int set_file_open(T_INODE* file_inode)
 	}
 
 	for(int i=0; i < MAX_FILES_OPEN; i++){
+		// check if position is not occupied by another file
 		if(fopen[i].inode == NULL){
 
-			fopen[i].handle 				 = i;
-			fopen[i].inode 					 = file_inode;
+			printf("Adicionei arquivo na posicao: %d\n", i);
+			fopen[i].handle = i;
+			fopen[i].inode 	= file_inode;
 			fopen[i].current_pointer = 0;
-			fopen[i].inode_index 		 = -1;
+			fopen[i].inode_index = -1;
 			// TODO!!! tem que achar o inode index junto com o inode
 			// para salvar no arquivo aberto.
 
@@ -758,9 +819,9 @@ int set_file_close(FILE2 handle)
 	else mounted->root->num_open_files--;
 
 	// In either case, overwriting fopen data to make sure.
-	fopen[handle].inode 				  = NULL;
-	fopen[handle].current_pointer = -1;
-	fopen[handle].inode_index 		=	-1;
+	fopen[handle].inode 		= NULL;
+	fopen[handle].current_pointer = 0;
+	fopen[handle].inode_index 	=	-1;
 	// TODO nao sei se botamos o handle -1 tbm só pra garantir
 
 	return SUCCESS;
@@ -768,22 +829,26 @@ int set_file_close(FILE2 handle)
 
 int init_open_files(){
 
-	if(!is_mounted()) return FAILED;
-	if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
+	// if(!is_mounted()) return FAILED;
+	// if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
+
+	printf("Openfiles 0\n");
 
 	if(mounted->root->open_files == NULL){
 		mounted->root->open_files =
 			(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
 	}
 
-	T_FOPEN* fopen = mounted->root->open_files;
+	printf("Openfiles 1\n");
+	// T_FOPEN* fopen = mounted->root->open_files;
 	int i;
 	for(i=0; i < MAX_FILES_OPEN; i++){
-		fopen[i].inode = NULL;
-		fopen[i].current_pointer = -1;
-		fopen[i].handle = i; // TODO: ou entao botar um handle invalido ate ser usado
-
+		mounted->root->open_files[i].inode = NULL;
+		mounted->root->open_files[i].current_pointer = 0;
+		mounted->root->open_files[i].handle = i; // TODO: ou entao botar um handle invalido ate ser usado
 	}
+	printf("Openfiles 2\n");
+
 	return SUCCESS;
 }
 
@@ -976,6 +1041,9 @@ int mount(int partition) {
 			mounted->superblock->blockSize * SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 	mounted->entries_per_block =
 			mounted->superblock->blockSize * SECTOR_SIZE / ENTRY_SIZE_BYTES;
+
+	opendir2();
+		
 	return SUCCESS;
 }
 
@@ -1019,23 +1087,52 @@ Função:	Função usada para criar um novo arquivo no disco e abrí-lo,
 		assumirá um tamanho de zero bytes.
 -----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename) {
+// int create2 (char *filename) {
 	if (init() != SUCCESS) return(failed("create2: failed to initialize"));
 	if(!is_mounted()) return(failed("No partition mounted."));
-	if(!is_root_open()) return(failed("Directory must be opened."));
+	// if(!is_root_open()) return(failed("Directory must be opened."));
+	if(opendir2() != SUCCESS) return(failed("Directory must be opened."));
 
 // OBS: tirei o inode root pq agora ta implicito que é
 // aquele em mounted->root
 // OBS2: acho que ja implementei essa funcao abaixo com outro nome
 // int sweep_root_by_name(char* filename, DIRENT2* dentry);
 // se funciona? nn sei
-	T_INODE* f = search_root_for_filename(filename);
 
-	if(f != NULL)
+	// T_INODE* f = search_root_for_filename(filename);
+
+	printf("Create 1\n");
+
+	// DIRENT2* dentry = mounted->root->inode;
+	DIRENT2* dentry = (DIRENT2*) malloc(sizeof(DIRENT2));
+	int size = strlen(filename)+1;
+	memcpy(dentry->name, filename, size);
+
+	// T_INODE* f =  sweep_root_by_name(filename, dentry);
+	int f =  sweep_root_by_name(filename, dentry);
+
+	printf("Create 2\n");
+
+	if(f == SUCCESS){
+		printf("File found.");
+		// remove file content 
+		// remove_file_content()
+
 		return FAILED;
+	}
+
+	printf("Create 3\n");
 
 	T_INODE* f2 = new_file(filename);
 
+
+	// int f2 = new_file(filename);
+
+	printf("Create 4\n");
+
 	FILE2 handle = set_file_open(f2);
+	// int handle = set_file_open(f2);
+
 	return handle;
 }
 
@@ -1045,14 +1142,22 @@ Função:	Função usada para remover (apagar) um arquivo do disco.
 int delete2 (char *filename) {
 	if (init() != SUCCESS) return(failed("delete2: failed to initialize"));
 	if(!is_mounted()) return(failed("No partition mounted."));
-	if(!is_root_open()) return(failed("Directory must be opened."));
+	if(is_root_open() != SUCCESS) return(failed("Could not open MFD."));
+
+	DIRENT2* dentry = (DIRENT2*) malloc(sizeof(DIRENT2));
+	int size = strlen(filename)+1;
+	memcpy(dentry->name, filename, size);
 
 	// OBS: tirei o inode root pq agora ta implicito que é
 	// aquele em mounted->root
-	// OBS2: acho que ja implementei essa funcao abaixo com outro nome
-	T_INODE* f = search_root_for_filename(filename);
+	// T_INODE* f = sweep_root_by_name(filename, dentry);
+	int f = sweep_root_by_name(filename, dentry);
 
-	remove_file_content(f);
+	if(f==FAILED)
+		return FAILED;
+
+	// remove_file_content(dentry->inodeNumber);
+
 	remove_record(filename);
 
 	return SUCCESS;
@@ -1194,7 +1299,7 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 	int 	entry_size = sizeof(T_RECORD);
 	int 	entries_per_sector = mounted->entries_per_block / sb->blockSize;
 	int 	total_sects = sb->blockSize;
-	DWORD offset = entry_block * sb->blockSize;
+	DWORD 	offset = entry_block * sb->blockSize;
 	int 	sector;
 	int 	e;
 

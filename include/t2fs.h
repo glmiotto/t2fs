@@ -19,6 +19,10 @@ typedef struct {
     char    name[MAX_FILE_NAME_SIZE+1]; /* Nome do arquivo cuja entrada foi lida do disco      */
     BYTE    fileType;                   /* Tipo do arquivo: regular (0x01) ou diret�rio (0x02) */
     DWORD   fileSize;                   /* Numero de bytes do arquivo                          */
+	
+	// TESTING
+	// T_INODE* inodeNumber;
+
 } DIRENT2;
 
 #pragma pack(pop)
@@ -61,7 +65,7 @@ typedef struct Open_file{
   WORD      handle;
   DWORD     inode_index;
   DWORD     current_pointer;
-	T_INODE*  inode;
+  T_INODE*  inode;
 } T_FOPEN;
 
 typedef struct Directory{
@@ -111,6 +115,7 @@ int initialize_superblock(int sectors_per_block);
 int save_superblock();
 void calculate_checksum(T_SUPERBLOCK* sb);
 int init_open_files();
+void report_open_files();
 //
 boolean is_root_open(void);
 boolean is_root_loaded();

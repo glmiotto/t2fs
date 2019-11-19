@@ -39,6 +39,15 @@ test_mbr:
 
 tst_map:
 	gcc -o $(EXMP_DIR)/tst_map $(EXMP_DIR)/tst_map.c -L ./ -l$(name) -lm -Wall
+	
+op:
+	make clean
+	make all
+	make tst_op
+
+tst_op:
+	gcc -o $(EXMP_DIR)/tst_op $(EXMP_DIR)/tst_op.c -L ./ -l$(name) -lm -Wall
+
 
 
 tar:
