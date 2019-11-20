@@ -156,10 +156,10 @@ T_INODE*  blank_inode();
 T_RECORD* blank_record();
 DIRENT2*  blank_dentry();
 
+int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb);
 
 /* Index mapping & search */
 DWORD map_inode_to_sector(int inode_index);
-DWORD map_block_to_sector(int block_index);
 int access_inode(int inode_index, T_INODE* return_inode);
 int new_file(char* filename, T_INODE* inode);
 
@@ -168,12 +168,24 @@ int save_record(T_RECORD* record);
 int save_superblock();
 
 // Directory
-int sweep_root_by_name(char* filename, DIRENT2* dentry);
-int find_entry(int partition, int entry_block, char* filename);
+int find_entry(char* filename, T_RECORD* record);
+int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record);
+int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record);
+
 int map_index_to_record(DWORD index, T_RECORD* record);
 // Bitmap
 int next_bitmap_index(int bitmap_handle, int bit_value);
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
+
+int remove_pointer_from_bitmap(DWORD pointer, DWORD sector_start, DWORD block_size, WORD handle);
+int remove_file_content(T_INODE* inode);
+int remove_record(char* filename);
+int set_file_open(T_INODE* file_inode);
+int set_file_close(FILE2 handle);
+BYTE* get_block(int sector, int offset, int n);
+int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size);
+int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size);
+
 
 /* **************************************************************** */
 
