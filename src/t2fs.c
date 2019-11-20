@@ -1230,6 +1230,27 @@ Função:	Função usada para realizar a leitura de uma certa quantidade
 		de bytes (size) de um arquivo.
 -----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size) {
+
+	// read:
+	// given open file handle and number of bytes,
+	// find file inode, read bytes from data block at the
+	// file`s CURRENT POINTER, and save into the buffer.
+	// update current pointer
+
+
+	// alternate behaviors:
+	// SOFTLINK:
+	// read its block with source file name.
+	// find file name and inode in directory.
+	// load correct block with current pointer (SOFT or ORIGINAL??)
+	// read bytes into buffer
+	// HARDLINK:
+	// get pointer to original file inode.
+	// treat as a regular file.
+
+
+
+
 	return -1;
 }
 
@@ -1238,6 +1259,28 @@ Função:	Função usada para realizar a escrita de uma certa quantidade
 		de bytes (size) de  um arquivo.
 -----------------------------------------------------------------------------*/
 int write2 (FILE2 handle, char *buffer, int size) {
+
+	//write:
+	// open file handle and number of bytes.
+	// find inode, find data block that includess the current pointer
+	// if no data block allocated, alloc one or more according to bytes.
+	// start writing bytes
+	// if bytes exceed the block, jump to next block
+	// OR allocate another block
+	// therefore: calculate whether
+	// current pointer + number of new bytes > free space available until end of file blocks.
+	// if it is, check if you can allocate more blocks in disk before starting
+	// write bytes, update pointer, update size in bytes and size in blocks.
+	// if bytes ends at the very last byte,
+	// the pointer points to a byte position that does not exist yet.
+	// therefore: always check whether current pointer under the "size in bytes" in the inode of file.
+
+	// alternate behavior:
+	// softlink: finds original file by name then do as above.
+	// hardlink: get original file by inode then same.
+	// update hardlink with size etc too.
+
+	
 	return -1;
 }
 
