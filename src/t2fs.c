@@ -1289,6 +1289,42 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	return -1;
 }
 
+int write_block(DWORD block_index, char* data_buffer, DWORD initial_byte, int data_size ){
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	DWORD offset = mounted->mbr_data->initial_sector + block_index*mounted->superblock->blockSize;
+	BYTE* sector_buffer = alloc_sector();
+	DWORD starting_sector = offset + (initial_byte % bytes_per_block) / SECTOR_SIZE;
+	DWORD starting_byte = (initial_byte % bytes_per_block) % SECTOR_SIZE;
+
+	DWORD current_data_byte = 0;
+	DWORD sector = starting_sector;
+	DWORD sector_byte = starting_byte;
+	DWORD bytes_to_copy;
+
+	//
+
+	while(sector < mounted->superblock->blockSize && current_data_byte < data_size){
+		read_sector(sector, sector_buffer);
+
+		if( (SECTOR_SIZE-sector_byte) < (data_size - current_data_byte))
+			bytes_to_copy = SECTOR_SIZE-sector_byte;
+		else
+			bytes_to_copy = data_size - current_data_byte;
+
+		memcpy(&(sector_buffer[sector_byte]), &(data_buffer[current_data_byte]), bytes_to_copy);
+		current_data_byte += bytes_to_copy;
+		sector_byte = 0;
+		write_sector(sector, sector_buffer);
+
+	}
+
+	// se nao deu pau ainda,
+	set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_OCCUPIED);
+	return SUCCESS;
+
+}
+
 /*-----------------------------------------------------------------------------
 Função:	Função usada para realizar a escrita de uma certa quantidade
 		de bytes (size) de  um arquivo.
@@ -1335,10 +1371,14 @@ int write2 (FILE2 handle, char *buffer, int size) {
 			}
 			// ok, tem blocos suficientes para dados.
 			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
+			int future_size_blocks = f.inode->blocksFileSize + num_new_blocks;
+				// map to pointers etc
+
 			// se arq tinha 0 blocks, os primeiros dois novos sao sem overhead (dataPtr 0 e 1)
-			// a partir do 3 bloco do arquivo, aloca um bloco de indices.
+			// a partir do 3 bloco do arquivo, precisa um bloco de indices.
 			// cada ponteiro nesse bloco aponta para um dos blocos de dados
-			// a partir do bloco Y , aloca um bloco de indices (double) e outro bloco de indices (single)
+			// a partir do bloco Y , precisa um bloco de indices (double) e outros Z blocos de indices (single)
+
 		}
 	}
 
@@ -1353,7 +1393,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// write bytes, update pointer, update size in bytes and size in blocks.
 	// if bytes ends at the very last byte,
 	// the pointer points to a byte position that does not exist yet.
-	// therefore: always check whether current pointer under the "size in bytes" in the inode of file.
+	// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
 
 	// alternate behavior:
 	// softlink: finds original file by name then do as above.
@@ -1363,6 +1403,8 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
 	return -1;
 }
+
+
 
 
 /*-----------------------------------------------------------------------------
