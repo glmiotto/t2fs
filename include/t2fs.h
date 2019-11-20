@@ -68,7 +68,8 @@ typedef struct Open_file{
   WORD      handle;
   DWORD     inode_index;
   DWORD     current_pointer;
-  T_INODE*  inode;
+  T_INODE*   inode;
+  T_RECORD*  record;
 } T_FOPEN;
 
 typedef struct Directory{
@@ -79,7 +80,7 @@ typedef struct Directory{
 	DWORD 		entry_index;
   DWORD     total_entries;
   DWORD     max_entries;
-  T_FOPEN*  open_files;
+  T_FOPEN   open_files[MAX_FILES_OPEN];
   DWORD     num_open_files;
 } T_DIRECTORY;
 
@@ -128,6 +129,7 @@ boolean is_root_loaded();
 boolean is_mounted();
 T_MOUNTED* get_mounted();
 boolean is_valid_filename(char* filename);
+boolean is_valid_handle(FILE2 handle);
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);
 BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);

@@ -193,12 +193,18 @@ int load_root(){
 	// Multiply by number of entries in a data block
 	// to get no. of ENTRIES per d-node.
 	printf("LDRT 7\n");
-
 	rt->max_entries *= mounted->entries_per_block;
 	printf("LDRT 8\n");
+	int i;
+	for (i=0; i< MAX_FILES_OPEN; i++){
+		rt->open_files[i].handle = i;
+		rt->open_files[i].inode_index = INVALID;
+		rt->open_files[i].current_pointer = 0;
+		rt->open_files[i].inode = NULL;
+		rt->open_files[i].record = NULL;
+	}
 
-	rt->open_files = NULL; // TODO errado??
-	rt->num_open_files = 0; // TODO errado??
+	rt->num_open_files = 0;
 	printf("LDRT 9\n");
 
 	return SUCCESS;
@@ -810,9 +816,6 @@ int set_file_open(T_INODE* file_inode){
 
 	if (!is_mounted())   return(failed("SetFileOpen failed 1"));
 	if (!is_root_open()) return(failed("SetFileOpen failed 2"));
-	if(mounted->root->open_files == NULL){
-		return(failed("SetFileOpen failed 3"));
-	}
 
 	T_FOPEN* fopen = mounted->root->open_files;
 
@@ -829,7 +832,7 @@ int set_file_open(T_INODE* file_inode){
 			fopen[i].handle = i;
 			fopen[i].inode 	= file_inode;
 			fopen[i].current_pointer = 0;
-			fopen[i].inode_index = -1;
+			fopen[i].inode_index = INVALID;
 			// TODO!!! tem que achar o inode index junto com o inode
 			// para salvar no arquivo aberto.
 
@@ -847,7 +850,6 @@ int set_file_close(FILE2 handle){
 	}
 	if (!is_mounted())   return(failed("SetFileClose failed 1"));
 	if (!is_root_open()) return(failed("SetFileClose failed 2"));
-	if(mounted->root->open_files == NULL){return(failed("SetFileClose failed 3"));}
 
 	T_FOPEN* fopen = mounted->root->open_files;
 
@@ -872,10 +874,10 @@ int init_open_files(){
 
 	printf("Openfiles 0\n");
 
-	if(mounted->root->open_files == NULL){
-		mounted->root->open_files =
-			(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
-	}
+	// if(mounted->root->open_files == NULL){
+	// 	mounted->root->open_files =
+	// 		(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
+	// }
 
 	printf("Openfiles 1\n");
 	// T_FOPEN* fopen = mounted->root->open_files;
@@ -1218,10 +1220,11 @@ FILE2 open2 (char *filename) {
 Função:	Função usada para fechar um arquivo.
 -----------------------------------------------------------------------------*/
 int close2 (FILE2 handle) {
-	if (init() != SUCCESS) return(failed("close2: failed to initialize"));
-	if(!is_mounted()) return(failed("No partition mounted."));
-	if(!is_root_open()) return(failed("Directory must be opened."));
-
+	// Validation
+	if (init() != SUCCESS) return failed("close2: failed to initialize");
+	if(!is_mounted()) return failed("No partition mounted.");
+	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_valid_handle(handle)) return failed("Invalid file handle.");
 	return set_file_close(handle);
 }
 
@@ -1230,27 +1233,59 @@ Função:	Função usada para realizar a leitura de uma certa quantidade
 		de bytes (size) de um arquivo.
 -----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size) {
+	// Validation
+	if (init() != SUCCESS) return failed("close2: failed to initialize");
+	if(!is_mounted()) return failed("No partition mounted.");
+	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+	if(size <= 0) return failed("Invalid number of bytes.");
+	// TODO: verificar se pode numero negativo de bytes
+	// (ler os x bytes anteriores ao current pointer e atualizar o current)
 
-	// read:
-	// given open file handle and number of bytes,
-	// find file inode, read bytes from data block at the
-	// file`s CURRENT POINTER, and save into the buffer.
-	// update current pointer
+	T_FOPEN f = mounted->root->open_files[handle];
+	DWORD offset;
+	BYTE* sector_buffer = alloc_sector();
 
+	if(f.record->TypeVal == TYPEVAL_LINK) {
+		// SOFTLINK:
+		// read its block with source file name.
+		// find file name and inode in directory.
+		// load correct block with current pointer
+		// read bytes into buffer
+		if( f.inode->dataPtr[0] <= INVALID) return failed("Bad soft link data ptr");
+		offset = mounted->mbr_data->initial_sector;
+		offset += f.inode->dataPtr[0] * mounted->superblock->blockSize;
+		if( read_sector(offset + 0, sector_buffer) != SUCCESS) return FAILED;
+		BYTE original_filename[MAX_FILENAME_SIZE+1];
+		strncpy((char*)original_filename, (char*)sector_buffer, MAX_FILENAME_SIZE+1);
+		T_RECORD* record = alloc_record(1);
+		find_entry((char*)original_filename, record);
 
-	// alternate behaviors:
-	// SOFTLINK:
-	// read its block with source file name.
-	// find file name and inode in directory.
-	// load correct block with current pointer (SOFT or ORIGINAL??)
-	// read bytes into buffer
-	// HARDLINK:
-	// get pointer to original file inode.
-	// treat as a regular file.
+		// check typeval if its another softlink or hardlink..
+		// get inode number, eventually find original file
+		// and proceed as normal .
 
+		return -1;
+	}
+	else {
 
+		if( (f.current_pointer + size) > f.inode->bytesFileSize){
+			return failed("Bytes to read exceed remaining bytes in file.");
+			// TODO: ler ate o fim mesmo assim?
+			// "x bytes menos que size até EOF"
+		}
 
+		// map current_pointer (Nth byte) to a specific block and sector
 
+		// if map to N+size is a different block/sector:
+		// map para cada setor ou block subsequente
+		// cada map retorna o setor
+		// while (size > 0 )
+		// memcopy do sector para o BUFFER recebido, min(size, SECTORSIZE) bytes
+		// decrementa size
+		// update current pointer para o byte SEGUINTE ao ultimo lido.
+
+	}
 	return -1;
 }
 
@@ -1259,6 +1294,13 @@ Função:	Função usada para realizar a escrita de uma certa quantidade
 		de bytes (size) de  um arquivo.
 -----------------------------------------------------------------------------*/
 int write2 (FILE2 handle, char *buffer, int size) {
+	// Validation
+	if (init() != SUCCESS) return failed("close2: failed to initialize");
+	if(!is_mounted()) return failed("No partition mounted.");
+	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+	if(size <= 0) return failed("Invalid number of bytes.");
+
 
 	//write:
 	// open file handle and number of bytes.
@@ -1348,25 +1390,22 @@ int access_inode(int inode_index, T_INODE* return_inode) {
 }
 
 int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
-	if(entry_block < 1) return FAILED;
-	// Helpful pointer
+	if(entry_block <= INVALID) return FAILED;
 	T_SUPERBLOCK* sb = mounted->superblock;
-
 	BYTE* buffer = alloc_sector();
+
 	char* entry_name = (char*)malloc(sizeof(char)*(MAX_FILENAME_SIZE+1));
 
 	int 	entry_size = sizeof(T_RECORD);
 	int 	entries_per_sector = mounted->entries_per_block / sb->blockSize;
 	int 	total_sects = sb->blockSize;
 	DWORD 	offset = mounted->mbr_data->initial_sector+entry_block * sb->blockSize;
-	int 	sector;
-	int 	e;
-
+	int 	sector, e;
 	// We were given a block, now read sector by sector.
 	for (sector = 0; sector < total_sects; sector++){
 		if(read_sector(offset + sector, buffer) != SUCCESS){
-			printf("Sweep: failed to read sector %d of block %d", sector, entry_block);
-			return(failed("Sweep: failed to read a sector"));
+			printf("FindEIB: failed to read sector %d of block %d", sector, entry_block);
+			return(failed("FindEIB: failed to read a sector"));
 		}
 		// Buffer (sector of an entry block) now holds about 4 entries.
 		for (e = 0; e < entries_per_sector; e++) {
@@ -1377,11 +1416,11 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 			if (strcmp(entry_name, filename) == 0){
 				memcpy(record, &(buffer[e*entry_size]), sizeof(T_RECORD));
 				printf("ACHOU A ENTRADA\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
-				return 1;
+				return record->inodeNumber;
 			}
 		}
 	}
-	return 0;//NOT FOUND
+	return NOT_FOUND;
 }
 
 int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
@@ -1413,8 +1452,6 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 	}
 	return 0;
 }
-
-//TODO
 
 // input: filename and empty record structure
 // output: success code. if found, dentry holds the dir entry
@@ -1598,7 +1635,7 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 	// READING SECTOR FROM FINAL BLOCK
 
 	// TODO: o primeiro bloco de dados é ocupado garantidamente por algo?
-	// Provavelmente já que qualquer nivel de in/direcao preciso de um bloco de entradas e tal
+	// Provavelmente sim já que qualquer nivel de in/direcao preciso de um bloco de entradas e tal
 	//memcpy entryblock dword <-buffer uchars
 
 	if(entry_block <= INVALID) return NOT_FOUND;
