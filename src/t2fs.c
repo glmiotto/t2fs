@@ -1280,7 +1280,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// hardlink: get original file by inode then same.
 	// update hardlink with size etc too.
 
-	
+
 	return -1;
 }
 
@@ -1493,99 +1493,96 @@ int find_entry(char* filename, T_RECORD* record) {
 	return FAILED;
 }
 
-
-int map_index_to_record(DWORD index, T_RECORD* record) {
-
+int map_index_to_record(DWORD index, T_RECORD* record){
 	if(!is_mounted()) 	return(failed("MITR no partition mounted yet."));
-	if(!is_root_open()) return(failed("MITR root not even loaded"));
+	if(!is_root_open()) return(failed("MITR root not loaded"));
+	T_DIRECTORY*  rt = mounted->root;
+	T_SUPERBLOCK* sb = mounted->superblock;
+	if(index < 0) 							 		 return(failed("MITB bad negative index"));
+	if(index >= rt->max_entries) 		 return(failed("MITB bad positive index"));
 
+	DWORD eps = mounted->entries_per_block / sb->blockSize;
+	DWORD sector_shift = (index % mounted->entries_per_block) % eps;
+
+	BYTE* buffer = alloc_sector();
+	int block = map_index_to_sector(index, mounted->entries_per_block, buffer);
+	if(block <= NOT_FOUND) return block; // failed ou inexistente
+
+	free(record); record = alloc_record(1);
+	memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
+	return SUCCESS;
+}
+
+
+// TODO: testar se os ptrs nao sao INVALID
+// (quando tivermos files).
+// This mapping function uses
+// the the number of the entry or the position byte within a file
+// to map straight to the block where it is, from the inode.
+int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
+
+	if(!is_mounted()) 	return(failed("MITB no partition mounted yet."));
+	if(!is_root_open()) return(failed("MITB root not loaded"));
 	T_DIRECTORY*  rt = mounted->root;
 	T_SUPERBLOCK* sb = mounted->superblock;
 
-	if(index < 0) 							 		 return(failed("MITR bad negative index"));
-	if(index >= rt->max_entries) 		 return(failed("MITR bad positive index"));
-	if(rt->inode->dataPtr<(DWORD*)1) return(failed("MITR boo"));
-
-	DWORD epb = mounted->entries_per_block;
-	DWORD eps = epb / sb->blockSize; // TODO :isso ta certo?
+	DWORD epb = units_per_block;
+	DWORD eps = epb / sb->blockSize;
 	DWORD ppb = mounted->pointers_per_block;
 	DWORD pps = ppb / sb->blockSize;
 
 	DWORD block_key 	 = index / epb;
-	DWORD block_shift  = index % epb;
-	DWORD sector_key 	 = block_shift / eps;
-	DWORD sector_shift = block_shift % eps;
+	DWORD sector_key 	 = (index % epb) / eps;
+	DWORD sector_shift = (index % epb) % eps;
 
-	DWORD entry_block;
-	DWORD index_block;
-	DWORD offset;
-	BYTE* buffer = alloc_sector();
-	// Boundaries:
-	// 1 -> dataPtr 1
-	// 2 -> dataPtr 2
-	// 3 to (numPointersPerBlock*numEntriesPerBlock-1)
-	// numPointersPerBlock*numEntriesPerBlock to max_entries.
+	DWORD entry_block, index_block, offset;
+	free(buffer); buffer = alloc_sector();
+
+	// DIRECT
 	if(block_key < 2){
 		entry_block = rt->inode->dataPtr[block_key];
-		offset = mounted->mbr_data->initial_sector + entry_block * sb->blockSize;
-
-		if(debugging){
-			printf("DIRECT| Entry: %u \n", index);
-			printf("Bloco: %u | ", block_key);
-			printf("Setor: %u | ", sector_key);
-			printf("Item: %u \n", sector_shift);
-			printf("Setor absoluto = %u\n", offset+sector_key);
-		}
-
-		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp womp"));
-
-		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
-		return SUCCESS;
 	}
+
+	// SINGLE INDIRECTION
 	else if (block_key < 2+ppb){
 		index_block = rt->inode->singleIndPtr;
+		if(index_block <= INVALID) return NOT_FOUND;
+
 		offset = mounted->mbr_data->initial_sector + index_block * sb->blockSize;
 		DWORD pointer_index = block_key - 2;
 		DWORD pointer_sector = pointer_index / pps;
-		if(read_sector(offset+pointer_sector, buffer) != SUCCESS) return(failed("Womp2 womp"));
-
-
-		entry_block = buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES];
-		//printf("ENTRY BLOCK after indirection: %x\n", entry_block);
-		offset = mounted->mbr_data->initial_sector + entry_block * sb->blockSize;
-
-		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp40 womp"));
 		if(debugging){
 			printf("SINGLE|| Entry: %u \n", index);
 			printf("NroPtr: %u | ", pointer_index);
 			printf("SetorPtr %u | ItemPtr %u | ",pointer_sector,pointer_index%pps);
-			printf("Bloco %u | ", block_key);
-			printf("Setor: %u | ", sector_key);
-			printf("Item: %u\n", sector_shift);
-			printf("Setor absoluto = %u\n", offset+sector_key);
+			printf("Vou ler offset: %u e setor %u\n", offset,pointer_sector);
 		}
+		if(read_sector(offset+pointer_sector, buffer) != SUCCESS)
+			return(failed("Womp2 womp"));
 
-		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
-		return SUCCESS;
-
+		entry_block = (DWORD)buffer[(pointer_index % pps)*DATA_PTR_SIZE_BYTES];
 	}
-
+	// DOUBLE INDIRECTION
 	else {
 		DWORD double_index_block = rt->inode->doubleIndPtr;
+		if(double_index_block <= INVALID) return NOT_FOUND;
+
 		offset = mounted->mbr_data->initial_sector + double_index_block * sb->blockSize;
 		DWORD pointer_index  = block_key - 2 - ppb;
-
-		//DWORD pointer_sector_dind = pointer_index/(ppb*ppb) / pps;
 		DWORD pointer_sector_dind = pointer_index/ppb/pps;
+
 		if(debugging){
 			printf("DOUBLE||| Entry: %u \n", index);
 			printf("NroPtrD: %u | ", pointer_index/ppb);
 			printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,pointer_sector_dind % pps);
+			printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
 		}
-		printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
 
-		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS) return(failed("Womp3 womp"));
+		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS)
+			return(failed("Womp3 womp"));
+
 		index_block = (DWORD)buffer[((pointer_index/ppb) % pps)*DATA_PTR_SIZE_BYTES];
+		if(index_block <= INVALID) return NOT_FOUND;
 
 		offset = mounted->mbr_data->initial_sector+ index_block * sb->blockSize;
 		pointer_index = block_key - 2 - ppb - pointer_sector_dind*pps; //*ppb*epb
@@ -1594,32 +1591,37 @@ int map_index_to_record(DWORD index, T_RECORD* record) {
 		if(debugging){
 			printf("NroPtrS: %u | ", pointer_index);
 			printf("SetorPtrS %u | ItemPtrS %u \n",pointer_sector, pointer_index% pps);
+			printf("Vou ler offset: %u e setor %u\n", offset, ((pointer_index%ppb) / pps));
 		}
-		//if(read_sector(offset+pointer_sector%ppb, buffer) != SUCCESS) return(failed("Womp4 womp"));
-		printf("Vou ler offset: %u e setor %u\n", offset, ((pointer_index%ppb) / pps));
 		if(read_sector(offset+((pointer_index%ppb) / pps), buffer) != SUCCESS) return(failed("Womp4 womp"));
 
-		// TODO: Bug here?
 		entry_block = (DWORD)buffer[(pointer_index% pps)*DATA_PTR_SIZE_BYTES];
-		//memcpy entryblock dword <-buffer uchars
-		offset = mounted->mbr_data->initial_sector+ entry_block * sb->blockSize;
+	}
+
+	// READING SECTOR FROM FINAL BLOCK
+
+	// TODO: o primeiro bloco de dados é ocupado garantidamente por algo?
+	// Provavelmente já que qualquer nivel de in/direcao preciso de um bloco de entradas e tal
+	//memcpy entryblock dword <-buffer uchars
+
+	if(entry_block <= INVALID) return NOT_FOUND;
+	else {
+		// Offset in sectors
+		offset = mounted->mbr_data->initial_sector;
+		offset += (entry_block*sb->blockSize);
+
 		if(debugging){
-			printf("Bloco %u | ", block_key);
+			printf("DIRECT| Entry: %u \n", index);
+			printf("Bloco: %u | ", block_key);
 			printf("Setor: %u | ", sector_key);
-			printf("Item: %u\n", sector_shift);
+			printf("Item: %u \n", sector_shift);
 			printf("Setor absoluto = %u\n", offset+sector_key);
+			printf("Vou ler offset: %u e setor %u\n", offset, sector_key);
 		}
 
-		printf("Vou ler offset: %u e setor %u\n", offset, sector_key);
-
-		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("Womp Womp 9000"));
-
-
-		memcpy(record, &(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
-
-		return SUCCESS;
+		if(read_sector(offset+sector_key, buffer) != SUCCESS) return(failed("WompLast womp"));
+		return entry_block;
 	}
-	return FAILED;
 }
 
 

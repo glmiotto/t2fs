@@ -172,6 +172,7 @@ int find_entry(char* filename, T_RECORD* record);
 int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record);
 int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record);
 
+int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer);
 int map_index_to_record(DWORD index, T_RECORD* record);
 // Bitmap
 int next_bitmap_index(int bitmap_handle, int bit_value);
