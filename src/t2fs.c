@@ -681,7 +681,7 @@ int save_inode(DWORD index, T_INODE* inode){
 		return(failed("SaveInode: Failed to read sector"));
 
 	DWORD offset = (index % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
-	memcpy(&(buffer[offset+sector]), inode, INODE_SIZE_BYTES);
+	memcpy(&(buffer[offset]), inode, INODE_SIZE_BYTES);
 
 	if(write_sector(sector, buffer) != SUCCESS) {
 		return(failed("SaveInode, WriteSector failed "));}
@@ -1358,7 +1358,7 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 	int 	entry_size = sizeof(T_RECORD);
 	int 	entries_per_sector = mounted->entries_per_block / sb->blockSize;
 	int 	total_sects = sb->blockSize;
-	DWORD 	offset = entry_block * sb->blockSize;
+	DWORD 	offset = mounted->mbr_data->initial_sector+entry_block * sb->blockSize;
 	int 	sector;
 	int 	e;
 
@@ -1391,7 +1391,7 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 
 	int i, s;
 	int total_sects = sb->blockSize;
-	DWORD offset = index_block * sb->blockSize;
+	DWORD offset = mounted->mbr_data->initial_sector+index_block * sb->blockSize;
 	BYTE* buffer = alloc_sector();
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 	DWORD entry_block;
@@ -1468,7 +1468,7 @@ int find_entry(char* filename, T_RECORD* record) {
 	// DOUBLE INDIRECT POINTER
 	index_block = rt->inode->doubleIndPtr;
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
-	offset = index_block * sb->blockSize;
+	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
 	DWORD inner_index_block;
 
 	if(index_block > INVALID) {
@@ -1513,12 +1513,9 @@ int map_index_to_record(DWORD index, T_RECORD* record){
 	return SUCCESS;
 }
 
-
-// TODO: testar se os ptrs nao sao INVALID
-// (quando tivermos files).
 // This mapping function uses
 // the the number of the entry or the position byte within a file
-// to map straight to the block where it is, from the inode.
+// to map straight to the sector where the content is, from the inode.
 int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 
 	if(!is_mounted()) 	return(failed("MITB no partition mounted yet."));
@@ -1623,7 +1620,6 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 		return entry_block;
 	}
 }
-
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para ler as entradas de um diretório.
