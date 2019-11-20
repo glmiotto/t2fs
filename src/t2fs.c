@@ -1301,9 +1301,47 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 	if(size <= 0) return failed("Invalid number of bytes.");
 
+	T_FOPEN f = mounted->root->open_files[handle];
+	//DWORD offset;
+	//BYTE* sector_buffer = alloc_sector();
 
+// Vou assumir so caso normal por enquanto
 	//write:
-	// open file handle and number of bytes.
+	// openfilehandle and number of bytes.
+	// map current pointer to block and sector
+
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	// Capacidade maxima do arquivo agora.
+	DWORD max_bytes_currently = f.inode->blocksFileSize * bytes_per_block;
+	// Qtos bytes pode expandir ainda sem alocar nada novo.
+	DWORD max_bytes_left = max_bytes_currently - f.inode->bytesFileSize;
+	// calculando quanto expandir se porventura necessario
+	int extra_size = f.current_pointer + size - f.inode->bytesFileSize;
+	if( extra_size > 0) {
+		// vai ter x bytes novos para escrever alem do size atual do arquivo.
+
+		if( max_bytes_left < extra_size) {
+			// vai ter que alocar mais blocos!!
+			DWORD num_new_blocks = 1 + (extra_size - max_bytes_left) / bytes_per_block;
+			int i;
+			DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*num_new_blocks);
+			for(i=0; i<num_new_blocks; i++){
+				indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+				if(indexes[i] < FIRST_VALID_BIT){
+					printf("Needs %u new data blocks, but partition only has %u free.\n",num_new_blocks,i);
+					return failed("Write2: Failed to find enough free data blocks.");
+				}
+			}
+			// ok, tem blocos suficientes para dados.
+			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
+			// se arq tinha 0 blocks, os primeiros dois novos sao sem overhead (dataPtr 0 e 1)
+			// a partir do 3 bloco do arquivo, aloca um bloco de indices.
+			// cada ponteiro nesse bloco aponta para um dos blocos de dados
+			// a partir do bloco Y , aloca um bloco de indices (double) e outro bloco de indices (single)
+		}
+	}
+
 	// find inode, find data block that includess the current pointer
 	// if no data block allocated, alloc one or more according to bytes.
 	// start writing bytes
@@ -1325,6 +1363,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
 	return -1;
 }
+
 
 /*-----------------------------------------------------------------------------
 Função:	Função que abre um diretório existente no disco.
