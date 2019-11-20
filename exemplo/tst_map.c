@@ -52,7 +52,7 @@ mount(0);
 umount();
 mount(0);
 report_superblock();
-  BOLA_DA_VEZ* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
+  T_MOUNTED* mounted = (BOLA_DA_VEZ*)malloc(sizeof(BOLA_DA_VEZ));
   mounted = get_mounted();
   T_SUPERBLOCK* sb = mounted->superblock;
   printf("---Id: %s\n",sb->id);

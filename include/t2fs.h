@@ -14,15 +14,14 @@ typedef unsigned int DWORD;
 #pragma pack(push, 1)
 
 /** Registro com as informa��es da entrada de diret�rio, lida com readdir2 */
-#define MAX_FILE_NAME_SIZE 255
+#define DIRENT_MAX_NAME_SIZE 255
 typedef struct {
-    char    name[MAX_FILE_NAME_SIZE+1]; /* Nome do arquivo cuja entrada foi lida do disco      */
+    char    name[DIRENT_MAX_NAME_SIZE+1]; /* Nome do arquivo cuja entrada foi lida do disco      */
     BYTE    fileType;                   /* Tipo do arquivo: regular (0x01) ou diret�rio (0x02) */
     DWORD   fileSize;                   /* Numero de bytes do arquivo                          */
-	
+
 	// TESTING
 	// T_INODE* inodeNumber;
-
 } DIRENT2;
 
 #pragma pack(pop)
@@ -32,6 +31,7 @@ typedef struct t2fs_inode 			T_INODE;
 typedef struct t2fs_record 		 	T_RECORD;
 #define SUCCESS 0
 #define FAILED -1
+#define INVALID 0
 #define SECTOR_SIZE 256
 #define INODE_SIZE_BYTES 32
 #define ENTRY_SIZE_BYTES sizeof(T_RECORD)
@@ -44,11 +44,14 @@ typedef struct t2fs_record 		 	T_RECORD;
 #define BIT_FREE 0
 #define BIT_OCCUPIED 1
 
+#define FIRST_VALID_BIT 1
+#define NOT_FOUND 0
+
 #define	TYPEVAL_INVALIDO	0x00
 #define	TYPEVAL_REGULAR		0x01
 #define	TYPEVAL_LINK		0x02
 
-#define MAX_FILE_NAME_SIZE 255
+#define MAX_FILENAME_SIZE 50
 #define MAX_FILES_OPEN 10
 
 #define DEFAULT_ENTRY 0
@@ -96,8 +99,11 @@ typedef struct WorkingPartition{
   DWORD         pointers_per_block;
   DWORD         entries_per_block;
   DWORD         total_inodes;
+  DWORD         max_inodes;
+  // FALTA INICIALIZAR EM MOUNT:
   DWORD         total_data_blocks;
-} BOLA_DA_VEZ;
+  DWORD         max_data_blocks;
+} T_MOUNTED;
 
 typedef struct Mbr{
 	DWORD      version;
@@ -108,20 +114,20 @@ typedef struct Mbr{
 } MBR;
 
 int init();
+int initialize_superblock(int sectors_per_block);
+int init_open_files();
+void calculate_checksum(T_SUPERBLOCK* sb);
+
 int load_mbr(BYTE* master_sector, MBR* mbr);
 int load_superblock();
 int load_root();
-int initialize_superblock(int sectors_per_block);
-int save_superblock();
-void calculate_checksum(T_SUPERBLOCK* sb);
-int init_open_files();
-void report_open_files();
-//
-boolean is_root_open(void);
+
+// Validation
+boolean is_root_open();
 boolean is_root_loaded();
-boolean is_mounted(void);
-BOLA_DA_VEZ* get_mounted(void);
-BYTE* alloc_sector();
+boolean is_mounted();
+T_MOUNTED* get_mounted();
+boolean is_valid_filename(char* filename);
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);
 BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);
@@ -134,18 +140,40 @@ int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
 int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
 int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry);
 
+/* Utils */
+int failed(char* msg);
+void print(char* msg);
+void* null(char* msg);
+
 void print_RECORD(T_RECORD* record);
 void report_superblock();
+void report_open_files();
+BYTE*     alloc_sector();
+T_INODE*  alloc_inode (DWORD quantity);
+T_RECORD* alloc_record(DWORD quantity);
+DIRENT2*  alloc_dentry(DWORD quantity);
+T_INODE*  blank_inode();
+T_RECORD* blank_record();
+DIRENT2*  blank_dentry();
 
+
+/* Index mapping & search */
 DWORD map_inode_to_sector(int inode_index);
 DWORD map_block_to_sector(int block_index);
-int map_index_to_record(DWORD index, T_RECORD* record);
-int max_pointers_in_block();
-int max_entries_in_block();
-
 int access_inode(int inode_index, T_INODE* return_inode);
-int find_entry(int partition, int entry_block, char* filename);
+int new_file(char* filename, T_INODE* inode);
+
+int save_inode(DWORD index, T_INODE* inode);
+int save_record(T_RECORD* record);
+int save_superblock();
+
+// Directory
 int sweep_root_by_name(char* filename, DIRENT2* dentry);
+int find_entry(int partition, int entry_block, char* filename);
+int map_index_to_record(DWORD index, T_RECORD* record);
+// Bitmap
+int next_bitmap_index(int bitmap_handle, int bit_value);
+int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
 
 /* **************************************************************** */
 
