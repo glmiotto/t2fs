@@ -123,6 +123,7 @@ int load_mbr(BYTE* master_sector, MBR* mbr);
 int load_superblock();
 int load_root();
 
+
 // Validation
 boolean is_root_open();
 boolean is_root_loaded();

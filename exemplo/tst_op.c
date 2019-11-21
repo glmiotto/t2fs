@@ -68,8 +68,6 @@ mount(0);
 
 report_open_files();
 
-report_open_files();
-
 create2("a.txt");
 
 
