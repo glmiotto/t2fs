@@ -41,6 +41,9 @@ int main() {
 
 // create2("a.txt");
 
+format2(0,4);
+
+
 
 
   return 0;

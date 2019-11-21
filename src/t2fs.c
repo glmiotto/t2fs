@@ -1232,6 +1232,16 @@ FILE2 open2 (char *filename) {
 	//T_INODE* f = search_root_for_filename(filename);
 	//if(f==NULL)
 		//return FAILED;
+	BYTE* record = alloc_record(1);
+	if(find_entry(filename, record)!=SUCCESS)
+		return FAILED;
+
+	// printf("found record:\n");
+	// for(int i=0; i<sizeof(record);i++)
+	// {
+	// 	printf("%x ", record[i]);
+	// }
+	
 
 	// TODO: get inode from filename then open
 	//FILE2 handle = set_file_open(f);
@@ -1376,6 +1386,8 @@ int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes){
 		for(int i=current_blocks; i<new_num_blocks; i++){
 			// save value of indexes to dataPtr
 			printf("allocating block %d\n", i);
+
+
 			written_blocks++;
 		}
 	}
@@ -1431,6 +1443,55 @@ int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes){
 	return SUCCESS;
 }
 
+DWORD find_sector_by_position(T_INODE* inode, int position) {
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	int pointers_per_block = (mounted->superblock->blockSize * SECTOR_SIZE) / sizeof(DWORD*);
+	int maximum_indexes = 2 + pointers_per_block + pointers_per_block*pointers_per_block;
+
+	// index of block from 0 to maximum_indexes which is the maximum number of data_blocks a file can have
+	int block_pos = floor(position/bytes_per_block);
+	int offset;
+
+	if(block_pos<=2) {
+		return inode->dataPtr[block_pos];
+	}
+	else if(block_pos <= 2 + pointers_per_block) {
+		// indirecao simples
+		// offset do ponteiro no bloco de indices de indirecao simples
+		offset = block_pos  - 2;
+		// offset do setor do indice no bloco de indices de indirecao simples
+		int sector_index = floor(offset/SECTOR_SIZE);
+		// offset do indice no setor
+		int offset_sector = offset % SECTOR_SIZE;
+		// setor do indice
+		int sector = inode->singleIndPtr*SECTOR_SIZE + sector_index;
+		
+
+		BYTE* buffer = alloc_sector();
+		read_sector(sector, buffer);
+		return (DWORD)buffer[offset_sector];
+	}
+	else if(block_pos <= maximum_indexes) {
+		// dupla indirecao
+		return -1;
+	}
+
+	return failed("Find block: Cannot find block at this position");
+}
+
+int write_data(T_INODE* inode, int position, char *buffer, int size) {
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+
+	int offset = position % bytes_per_block;
+
+	int pointer = find_sector_by_position(inode, position);
+	
+	// write x bytes from buffer at position given by pointer
+
+}
+
 /*-----------------------------------------------------------------------------
 Função:	Função usada para realizar a escrita de uma certa quantidade
 		de bytes (size) de  um arquivo.
@@ -1443,7 +1504,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 	if(size <= 0) return failed("Invalid number of bytes.");
 
-	// printf("WRITE 1\n");
 	
 	T_FOPEN f = mounted->root->open_files[handle];
 	T_INODE* file_inode;
@@ -1453,7 +1513,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	if(f.inode==NULL){}
 
 	if(writeMFD){
-		// printf("WRITE 2\n");
 		file_inode = mounted->root->inode;
 	}
 	// checking if handle is valid
@@ -1461,14 +1520,9 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		return failed("File must be opened.");
 	}
 	else{
-		// printf("WRITE 3\n");
 		file_inode = f.inode;
 	}
-	
 
-
-	// printf("WRITE 4\n");
-	
 
 	//DWORD offset;
 	//BYTE* sector_buffer = alloc_sector();
@@ -1497,7 +1551,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		extra_size = size;
 	}
 	
-	printf("WRITE 5\n");
 	printf("blocksize =%d\n", mounted->superblock->blockSize);
 	printf("bytes/block =%d\n", bytes_per_block);
 	printf("max_bytes_currently =%d\n", max_bytes_currently);
@@ -1508,22 +1561,18 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		// vai ter x bytes novos para escrever alem do size atual do arquivo.
 
 		if( max_bytes_left < extra_size) {
-			printf("WRITE 510\n");
 
 			// vai ter que alocar mais blocos!!
 			// checar se bytes_per_block é zero?
 			DWORD num_new_blocks = 1 + (extra_size - max_bytes_left) / bytes_per_block;
 			int i;
-			printf("WRITE 51\n");
 
 			DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*num_new_blocks);
 			for(i=0; i<num_new_blocks; i++){
 
-				printf("WRITE 6\n");
 
 				indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 
-				printf("WRITE 7\n");
 
 				if(indexes[i] < FIRST_VALID_BIT){
 					printf("Needs %u new data blocks, but partition only has %u free.\n",num_new_blocks,i);
@@ -1531,20 +1580,20 @@ int write2 (FILE2 handle, char *buffer, int size) {
 				}
 			}
 
-			printf("WRITE 8\n");
-
 			// ok, tem blocos suficientes para dados.
 			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
 			// int future_size_blocks = f.inode->blocksFileSize + num_new_blocks;
-			int future_size_blocks = file_inode->blocksFileSize + num_new_blocks;
-			future_size_blocks++;
 
 			allocate_new_indexes(file_inode, indexes);
 
-			// if( future_size_blocks > 2 ) {
-			// 	if()
-			// }
+			if(writeMFD){
+				write_data(file_inode, file_inode->blocksFileSize, buffer, size);
+			}
+			else {
+				write_data(file_inode, f.current_pointer, buffer, size);
+				f.current_pointer = f.current_pointer + size + 1;
 
+			}
 			
 				// map to pointers etc
 
