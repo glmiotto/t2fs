@@ -1556,7 +1556,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
 	//DWORD offset;
 	//BYTE* sector_buffer = alloc_sector();
-	printf("Writing 1\n");
 
 // Vou assumir so caso normal por enquanto
 	//write:
@@ -1572,8 +1571,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// DWORD max_bytes_left = max_bytes_currently - f.inode->bytesFileSize;
 	DWORD max_bytes_left = max_bytes_currently - file_inode->bytesFileSize;
 
-	printf("Writing 2\n");
-
 
 	// calculando quanto expandir se porventura necessario
 	// int extra_size = f.current_pointer + size - f.inode->bytesFileSize;
@@ -1585,11 +1582,11 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		extra_size = size;
 	}
 	
-	printf("blocksize =%d\n", mounted->superblock->blockSize);
-	printf("bytes/block =%d\n", bytes_per_block);
-	printf("max_bytes_currently =%d\n", max_bytes_currently);
-	printf("max_bytes_left =%d\n", max_bytes_left);
-	printf("extra_size =%d\n", extra_size);
+	// printf("blocksize =%d\n", mounted->superblock->blockSize);
+	// printf("bytes/block =%d\n", bytes_per_block);
+	// printf("max_bytes_currently =%d\n", max_bytes_currently);
+	// printf("max_bytes_left =%d\n", max_bytes_left);
+	// printf("extra_size =%d\n", extra_size);
 
 	if( extra_size > 0) {
 		// vai ter x bytes novos para escrever alem do size atual do arquivo.
@@ -1604,10 +1601,8 @@ int write2 (FILE2 handle, char *buffer, int size) {
 			DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*num_new_blocks);
 			for(i=0; i<num_new_blocks; i++){
 
-				printf("Writing 3\n");
 
 				indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-				printf("Writing 33\n");
 
 
 				if(indexes[i] < FIRST_VALID_BIT){
