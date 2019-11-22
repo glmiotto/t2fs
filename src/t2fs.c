@@ -88,20 +88,27 @@ boolean is_root_open(){
 
 boolean is_valid_filename(char* filename){
 
+	int filesize = strlen(filename);
+
 	printf("FILENAME: %s\n", filename);
 	printf("Filename size: %lu\n", sizeof(filename)/sizeof(char));
-	printf("Filename length: %lu\n", strlen(filename));
+	printf("Filename length: %lu\n", filesize);
 
-	if(strlen(filename) > MAX_FILENAME_SIZE){
+	if(filesize > MAX_FILENAME_SIZE){
 		return false;
 	}
 	int i;
-	for(i=0; i < strlen(filename); i++){
+	for(i=0; i < filesize; i++){
 		printf("Filename at i=%d: %x aka %c", i, filename[i], filename[i]);
 		if( (filename[i] < 0x21) || (filename[i] > 0x7A) ){
 			return false;
 		}
 	}
+
+	if (filename[filesize] != '\0'){
+		return false;
+	}
+
 	return true;
 }
 
@@ -130,7 +137,8 @@ T_INODE* blank_inode(){
 	inode->dataPtr[1] 		= INVALID;
 	inode->singleIndPtr 	= INVALID;
 	inode->doubleIndPtr 	= INVALID;
-	inode->RefCounter 		= 0;
+	inode->RefCounter 		= 1;
+	// indica que uma entrada aponta para este inode
 	return inode;
 }
 
@@ -1030,6 +1038,7 @@ int remove_record(char* filename){
 		return FAILED;
 
 	// percorre blocos de dados do diretorio raiz buscando registro
+	// TODO
 
 	return SUCCESS;
 }
@@ -1210,7 +1219,13 @@ int delete2 (char *filename) {
 		return(failed("Delete: File does not exist."));
 	}
 
-	//remove_file_content(record->inodeNumber);
+	if (record->TypeVal == TYPEVAL_LINK)
+	{
+		// TODO: apenas decrementar refCounter no inode
+	}
+	else
+		remove_file_content(record->inodeNumber);
+
 	remove_record(filename);
 	return SUCCESS;
 }
@@ -2117,7 +2132,6 @@ int sln2 (char *linkname, char *filename) {
 
 	// copia do nome do arquivo para o buffer
 	BYTE* buffer = alloc_sector();
-	// TODO: garantir que filename termina em \0 (strlen nao inclui \0)
 	memcpy(buffer, filename, sizeof(char)*strlen(filename));
 
 	// escreve o bloco no disco
@@ -2132,19 +2146,18 @@ int sln2 (char *linkname, char *filename) {
 			return failed("Failed to write sector");
 	}
 
-	// inicializacao do inode
+	// inicializacao do inode e salvamento no disco
 	T_INODE* inode = blank_inode();
 	inode->blocksFileSize = 1;
 	inode->bytesFileSize = sizeof(char)*(strlen(filename)+1); // +1 inclui \0
 	inode->dataPtr[0] = indice_bloco;
-	inode->dataPtr[1] = INVALID; // obs: a principio o blank_inode ja vem com isso assim
-	inode->singleIndPtr = INVALID;
-	inode->doubleIndPtr = INVALID;
-	inode->RefCounter = 1;
+	save_inode(indice_inode, inode);
 	// TODO: acho que RefCounter != 0 é só para arquivos originais
 	// que sao apontados por hardlinks.
-
-	// inicializacao da entrada no dir
+	// -> acho mais coerente deixar o padrão como 1. se o original é apagado mas o
+	//		hardlink não, o contador vai indicar 1 referencia
+	
+	// inicializacao da entrada no dir e salvamento no disco
 	T_RECORD* registro = blank_record();
 	registro->TypeVal = TYPEVAL_LINK;
 	if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
@@ -2152,10 +2165,7 @@ int sln2 (char *linkname, char *filename) {
 	// ops acho que strlen nao conta o \0. MAX_FILENAME_SIZE é 50.
 	strncpy(registro->name, linkname, strlen(linkname)+1);
 	registro->inodeNumber = indice_inode;
-
-	// TODO: escrever inode no disco e entrada no dir
-
-	// ...
+	save_record(registro);
 
 	return SUCCESS;
 }
@@ -2171,41 +2181,36 @@ int hln2(char *linkname, char *filename) {
 	if (!is_valid_filename(filename)) return(failed("Filename not valid."));
 	if (!is_valid_filename(linkname)) return(failed("Linkname not valid."));
 
-	// T_RECORD* record = alloc_record(1);
+	T_RECORD* record = alloc_record(1);
 
-	// // if file 'linkname' already exists
-	// if (find_entry(linkname, record) == SUCCESS){
-	// 	printf("File %s already exists.\n", linkname);
-	// 	return FAILED;
-	// }
+	// if file 'linkname' already exists
+	if (find_entry(linkname, record) == SUCCESS){
+		printf("File %s already exists.\n", linkname);
+		return FAILED;
+	}
 
-	// // if file 'filename' doesnt exist
-	// if (find_entry(filename, record) != SUCCESS){
-	// 	printf("File %s doesn't exist.\n", filename);
-	// 	return FAILED;
-	// }
+	// if file 'filename' doesnt exist
+	if (find_entry(filename, record) != SUCCESS){
+		printf("File %s doesn't exist.\n", filename);
+		return FAILED;
+	}
 
-	// int indice_inode = search_inode_by_filename(filename);
+	int indice_inode = record->inodeNumber;
 
-	// // abre inode do arquivo 'filename'
-	// T_INODE* inode = alloc_inode(1);
-	// //inode = open_inode_by_index(indice_inode);
-	// if(access_inode(indice_inode, inode) != SUCCESS) return FAILED;
-	// // apenas incrementa o contador de referencias
-	// inode->RefCounter += 1;
+	// abre inode do arquivo 'filename' e incrementa o contador de referencias
+	T_INODE* inode = alloc_inode(1);
+	if(access_inode(indice_inode, inode) != SUCCESS) return FAILED;
+	inode->RefCounter += 1;
+	// TODO: precisa salvar inode no disco?
 
-	// // inicializacao da entrada no dir
-	// T_RECORD* registro = blank_record();
-	// registro->TypeVal = TYPEVAL_LINK;
-	// if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
-	// // 51 contando o /0 da string
-	// // ops acho que strlen nao conta o \0. MAX_FILENAME_SIZE é 50.
-	// strncpy(registro->name, linkname, strlen(filename)+1);
-	// registro->inodeNumber = indice_inode;
-
-	// // TODO: escrever entrada no dir
-
-	// ...
+	// inicializacao da entrada no dir e salvamento no disco
+	T_RECORD* registro = blank_record();
+	registro->TypeVal = TYPEVAL_LINK;
+	if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
+	// 51 contando o /0 da string
+	// ops acho que strlen nao conta o \0. MAX_FILENAME_SIZE é 50.
+	strncpy(registro->name, linkname, strlen(filename)+1);
+	registro->inodeNumber = indice_inode;
 
 	return SUCCESS;
 }
