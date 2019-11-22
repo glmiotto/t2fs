@@ -20,29 +20,26 @@ int main() {
 
 
 
-  MBR* mbr = (MBR*)malloc(sizeof(MBR));
-  load_mbr(mbr_sector, mbr);
-  printf("\nVersion: %d\n", mbr->version);
-  printf("Sector size in bytes: %d\n", mbr->sector_size);
-  printf("Initial Byte: %d\n", mbr->initial_byte);
-  printf("# Partitions: %d\n", mbr->num_partitions);
+  // MBR* mbr = (MBR*)malloc(sizeof(MBR));
+  // load_mbr(mbr_sector, mbr);
+  // printf("\nVersion: %d\n", mbr->version);
+  // printf("Sector size in bytes: %d\n", mbr->sector_size);
+  // printf("Initial Byte: %d\n", mbr->initial_byte);
+  // printf("# Partitions: %d\n", mbr->num_partitions);
 
-  for (j=0; j < mbr->num_partitions; j++){
-    printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
-    printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
-    printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
-  }
+  // for (j=0; j < mbr->num_partitions; j++){
+  //   printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
+  //   printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
+  //   printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
+  // }
 
 
 // format2(0,4);
-// mount(0);
+mount(0);
+// create2("a.txt");
+open2("a.txt");
 
 // report_open_files();
-
-// create2("a.txt");
-
-format2(0,4);
-
 
 
 
