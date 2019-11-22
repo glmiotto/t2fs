@@ -19,9 +19,17 @@ boolean debugging = true;
 boolean writeMFD = true;
 
 // Debugging
-int failed(char* msg) {printf("%s\n", msg);return FAILED;}
-void print(char* msg) {printf("%s\n", msg);}
-void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
+int failed(char* msg) {
+	// printf("%s\n", msg);
+	return FAILED;
+}
+void print(char* msg) {
+	// printf("%s\n", msg);
+}
+void* null(char* msg) {
+	// printf("%s\n", msg);
+	return (void*)NULL;
+}
 
 /* **************************************************************** */
 
@@ -90,16 +98,16 @@ boolean is_valid_filename(char* filename){
 
 	int filesize = strlen(filename);
 
-	printf("FILENAME: %s\n", filename);
-	printf("Filename size: %lu\n", sizeof(filename)/sizeof(char));
-	printf("Filename length: %lu\n", filesize);
+	// printf("FILENAME: %s\n", filename);
+	// printf("Filename size: %lu\n", sizeof(filename)/sizeof(char));
+	// printf("Filename length: %lu\n", filesize);
 
 	if(filesize > MAX_FILENAME_SIZE){
 		return false;
 	}
 	int i;
 	for(i=0; i < filesize; i++){
-		printf("Filename at i=%d: %x aka %c", i, filename[i], filename[i]);
+		// printf("Filename at i=%d: %x aka %c", i, filename[i], filename[i]);
 		if( (filename[i] < 0x21) || (filename[i] > 0x7A) ){
 			return false;
 		}
@@ -161,17 +169,17 @@ DIRENT2* blank_dentry(){
 }
 
 int load_root(){
-	printf("LDRT 1\n");
+	// printf("LDRT 1\n");
 
 	if (init() != SUCCESS) return(failed("Uninitialized"));
 	if (!is_mounted())  return(failed("No partition mounted."));
 	if (is_root_loaded()) return SUCCESS;
 
-	printf("LDRT 2\n");
+	// printf("LDRT 2\n");
 
 
 	BYTE* buffer = alloc_sector();
-	printf("LDRT 3\n");
+	// printf("LDRT 3\n");
 
 	if(read_sector(mounted->fst_inode_sector,  buffer) != SUCCESS)
 		return(failed("LoadRoot failed"));
@@ -180,20 +188,20 @@ int load_root(){
 	if(access_inode(ROOT_INODE, dir_node)!=SUCCESS){
 		return(failed("LoadRoot: Failed to access directory node"));
 	}
-	printf("LDRT 4\n");
+	// printf("LDRT 4\n");
 
 	mounted->root =  (T_DIRECTORY*)malloc(sizeof(T_DIRECTORY));
 	T_DIRECTORY* rt = mounted->root;
 
-	printf("LDRT 5\n");
+	// printf("LDRT 5\n");
 
-	rt->open = true; // TODO: nao acho que ja posso assumir isso
+	rt->open = true;
 	rt->inode = dir_node ;
 	rt->inode_index = ROOT_INODE;
 	rt->entry_index = DEFAULT_ENTRY;
-	rt->total_entries = 0; // TODO: errado, percorrer pelo node todos validos
+	rt->total_entries = 0;
 
-	printf("LDRT 6\n");
+	// printf("LDRT 6\n");
 
 	// Maximum number of ENTRY BLOCKS the d-node can hold.
 	rt->max_entries = 2  						// direct pointers to Entry Nodes
@@ -201,9 +209,9 @@ int load_root(){
 			+ mounted->pointers_per_block*mounted->pointers_per_block; // 1 double indirect
 	// Multiply by number of entries in a data block
 	// to get no. of ENTRIES per d-node.
-	printf("LDRT 7\n");
+	// printf("LDRT 7\n");
 	rt->max_entries *= mounted->entries_per_block;
-	printf("LDRT 8\n");
+	// printf("LDRT 8\n");
 	int i;
 	for (i=0; i< MAX_FILES_OPEN; i++){
 		rt->open_files[i].handle = i;
@@ -214,7 +222,7 @@ int load_root(){
 	}
 
 	rt->num_open_files = 0;
-	printf("LDRT 9\n");
+	// printf("LDRT 9\n");
 
 	return SUCCESS;
 
@@ -231,7 +239,7 @@ int init(){
 
 	// Read disk master boot record into application space
 	if(load_mbr(master_sector, &disk_mbr) != SUCCESS) {
-		return failed("Fu"); }
+		return FAILED; }
 
 	mounted = NULL;
 	t2fs_initialized = true;
@@ -277,21 +285,21 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	//sb->id[2] = bytes[1];
 	//sb->id[1] = bytes[2];
 	//sb->id[0] = bytes[3];
-	printf("BY2SPBK 1\n");
+	// printf("BY2SPBK 1\n");
 
 	sb->version =	to_int(&(bytes[4]), 2);
 	sb->superblockSize = to_int(&(bytes[6]), 2);
 	sb->freeBlocksBitmapSize = to_int(&(bytes[8]), 2);
 	sb->freeInodeBitmapSize = to_int(&(bytes[10]), 2);
-	printf("BY2SPBK 3\n");
+	// printf("BY2SPBK 3\n");
 
 	sb->inodeAreaSize = to_int(&(bytes[12]), 2);
 	sb->blockSize = to_int(&(bytes[14]), 2);
 	sb->diskSize = to_int(&(bytes[16]), 4);
-	printf("BY2SPBK 7\n");
+	// printf("BY2SPBK 7\n");
 
 	sb->Checksum = to_int(&(bytes[20]), 4);
-	printf("BY2SPBK 8\n");
+	// printf("BY2SPBK 8\n");
 
 	return SUCCESS;
 }
@@ -304,7 +312,6 @@ int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 
 	// dentry->inodeNumber =
 
-	// TODO: tamanho do arquivo, usando o inode number do RECORD_to_DIRENT
 	//dentry->fileSize = (DWORD) ...
 	return SUCCESS;
 }
@@ -347,7 +354,7 @@ Função:	Informa a identificação dos desenvolvedores do T2FS.
 int identify2 (char *name, int size) {
 	char *nomes ="Artur Waquil Campana\t00287677\nGiovanna Lazzari Miotto\t00207758\nHenrique Chaves Pacheco\t00299902\n\0";
 	if (size < strlen(nomes)) {
-		printf("ERROR: identification requires size %zu or larger.\n", strlen(nomes));
+		// printf("ERROR: identification requires size %zu or larger.\n", strlen(nomes));
 		return FAILED;
 	}
 	else strncpy(name, nomes, size);
@@ -360,39 +367,39 @@ int initialize_superblock(int sectors_per_block) {
 
 	sb = mounted->superblock;
 
-	printf("INIT_SB1\n");
+	// printf("INIT_SB1\n");
 
 	int fst_sect = mounted->mbr_data->initial_sector;
 	int lst_sect  = mounted->mbr_data->final_sector;
 	int num_sectors = lst_sect - fst_sect + 1;
-	printf("INIT_SB2\n");
+	// printf("INIT_SB2\n");
 
 
 	//strncpy(sb->id, "T2FS", 4);
 	memcpy(sb->id, (char*)"T2FS", 4);
 
-	printf("INIT_SB3\n");
+	// printf("INIT_SB3\n");
 
 	sb->version = 0x7E32;
-	printf("INIT_SB4\n");
+	// printf("INIT_SB4\n");
 
 	sb->superblockSize = 1;
 	sb->blockSize = (WORD)sectors_per_block;
-	printf("INIT_SB5\n");
+	// printf("INIT_SB5\n");
 
 	//Number of logical blocks in formatted disk.
 	sb->diskSize = (WORD)ceil(num_sectors/(float)sectors_per_block);
-	printf("INIT_SB6\n");
+	// printf("INIT_SB6\n");
 
-	printf("num sectors %d\n", num_sectors);
-	printf("num sectors per block %d\n", sectors_per_block);
-	printf("disksize %d\n", sb->diskSize);
+	// printf("num sectors %d\n", num_sectors);
+	// printf("num sectors per block %d\n", sectors_per_block);
+	// printf("disksize %d\n", sb->diskSize);
 
 	// 10% of partition blocks reserved to inodes (ROUND UP)
 	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize));
-	printf("inode Area Size %d\n", sb->inodeAreaSize);
+	// printf("inode Area Size %d\n", sb->inodeAreaSize);
 
-	printf("INIT_SB7\n");
+	// printf("INIT_SB7\n");
 
 
 	/* ************* BITMAPS ************* */
@@ -402,7 +409,7 @@ int initialize_superblock(int sectors_per_block) {
 	mounted->total_inodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
 	mounted->total_inodes /= sizeof(T_INODE);
 
-	printf("INIT_SB8\n");
+	// printf("INIT_SB8\n");
 
 	// inode bitmap size: 1 bit per inode given "X" inodes per block
 	float inode_bmap = (float)mounted->total_inodes;
@@ -410,13 +417,13 @@ int initialize_superblock(int sectors_per_block) {
 	inode_bmap /= (float)(8*disk_mbr.sector_size*sectors_per_block);
 	sb->freeInodeBitmapSize = (WORD) ceil(inode_bmap);
 
-	printf("INIT_SB9\n");
+	// printf("INIT_SB9\n");
 
 	// Total number of data blocks is dependent on size of its own bitmap!
 	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
 	data_blocks -= sb->freeInodeBitmapSize;
 
-	printf("INIT_SB10\n");
+	// printf("INIT_SB10\n");
 
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
 	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
@@ -425,21 +432,18 @@ int initialize_superblock(int sectors_per_block) {
 
 	mounted->total_data_blocks = data_blocks - sb->freeBlocksBitmapSize;
 
-	// TODO: revisar tudo isso
-	printf("diskSize (of partition) in blocks %d\n", sb->diskSize);
-	printf("freeBlocksBitmapSize %d\n", sb->freeBlocksBitmapSize);
-	printf("freeInodeBitmapSize %d\n", sb->freeInodeBitmapSize);
-	printf("inodeAreaSize %d\n", sb->inodeAreaSize);
+	// printf("diskSize (of partition) in blocks %d\n", sb->diskSize);
+	// printf("freeBlocksBitmapSize %d\n", sb->freeBlocksBitmapSize);
+	// printf("freeInodeBitmapSize %d\n", sb->freeInodeBitmapSize);
+	// printf("inodeAreaSize %d\n", sb->inodeAreaSize);
 	calculate_checksum(sb);
-	printf("CHECKSUM %u\n", sb->Checksum);
+	// printf("CHECKSUM %u\n", sb->Checksum);
 
-	printf("Total VALID inodes: %d\n", mounted->total_inodes);
-	printf("Total VALID data blocks: %d\n", mounted->total_data_blocks);
-	printf("Total theoretical data blocks: %d\n", sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8);
+	// printf("Total VALID inodes: %d\n", mounted->total_inodes);
+	// printf("Total VALID data blocks: %d\n", mounted->total_data_blocks);
+	// printf("Total theoretical data blocks: %d\n", sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8);
 
-	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 	report_superblock();
-	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
 	save_superblock();
 	return SUCCESS;
@@ -475,23 +479,23 @@ int load_superblock() {
 
 	mounted->superblock = (T_SUPERBLOCK*) malloc(sizeof(T_SUPERBLOCK));
 	BYTE* buffer = alloc_sector();
-	printf("LSB1\n");
+	// printf("LSB1\n");
 
-	printf("->Reading sector %d (first in partition)\n", mounted->mbr_data->initial_sector);
+	// printf("->Reading sector %d (first in partition)\n", mounted->mbr_data->initial_sector);
 
 	if(read_sector(mounted->mbr_data->initial_sector, buffer)!= SUCCESS) return(failed("failed reading sb"));
-	printf("LSB2\n");
+	// printf("LSB2\n");
 
-	printf("->Sector in hex:\n");
-	int i;
-	for (i = 0; i < sizeof(T_SUPERBLOCK); i++){
-		printf("%x ", buffer[i]);
-	}
-	printf("\n");
-	print("->Conversion Sector to Superblock:\n");
-	print("-->Conversion using BYTE_to_SUPERBLOCK:\n");
+	// printf("->Sector in hex:\n");
+	// int i;
+	// for (i = 0; i < sizeof(T_SUPERBLOCK); i++){
+	// 	printf("%x ", buffer[i]);
+	// }
+	// printf("\n");
+	// print("->Conversion Sector to Superblock:\n");
+	// print("-->Conversion using BYTE_to_SUPERBLOCK:\n");
 	if(BYTE_to_SUPERBLOCK(buffer,mounted->superblock) !=SUCCESS) return FAILED;
-	print("--Resulting structure:\n");
+	// print("--Resulting structure:\n");
 	report_superblock();
 
 	//print("-->Conversion using memcpy:\n");
@@ -500,7 +504,7 @@ int load_superblock() {
 	//report_superblock();
 
 	//print("--->Conclusão, disco bugado sei la\n");
-	printf("LoadSB-Final\n");
+	// printf("LoadSB-Final\n");
 
 
 	return SUCCESS;
@@ -590,7 +594,7 @@ int initialize_bitmaps(){
 	//int theoretical_nodes = sb->freeInodeBitmapSize*sb->blockSize*SECTOR_SIZE*8;
 
 	int bit;
-	printf("Free inode bits range: %d-%d\n", ROOT_INODE+1, valid_nodes);
+	// printf("Free inode bits range: %d-%d\n", ROOT_INODE+1, valid_nodes);
 	for (bit = ROOT_INODE+1; bit < valid_nodes; bit++){
 		// Each bit after root is set to FREE
 		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
@@ -616,7 +620,7 @@ int initialize_bitmaps(){
 		sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
 
 
-	printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
+	// printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
 	for (bit= 0; bit < pre_data_blocks; bit++) {
 		// non addressable blocks are marked OCCUPIED forever
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
@@ -625,7 +629,7 @@ int initialize_bitmaps(){
 		}
 	}
 	int data_blocks_limit = pre_data_blocks+valid_blocks;
-	printf("Free data bits range: %d-%d\n", pre_data_blocks, data_blocks_limit);
+	// printf("Free data bits range: %d-%d\n", pre_data_blocks, data_blocks_limit);
 	for (bit= pre_data_blocks; bit < data_blocks_limit; bit++) {
 		// total VALID blocks (addressable by the API)
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
@@ -635,7 +639,8 @@ int initialize_bitmaps(){
 	}
 
 	if(closeBitmap2() != SUCCESS) {
-		print("------> WARNING: Could not save bitmap info to disk.");
+		// print("------> WARNING: Could not save bitmap info to disk.");
+		return -1;
 	}
 
 	return SUCCESS;
@@ -707,20 +712,6 @@ int save_inode(DWORD index, T_INODE* inode){
 		else return FAILED;
 	}
 }
-		// used to be part of save new node
-		// int* block_indexes = (int*) malloc((2+inode->blocksFileSize)*sizeof(int));
-		//
-		// int count_free =  0 ;
-		// while(count_free < inode->blocksFileSize) {
-		//
-		// 	int code_blocks = searchBitmap2(BITMAP_INODES, BIT_FREE);
-		// 	if (code_blocks < 0 ) {return(failed("Failed blocks bitmap search."));}
-		// 	if (code_blocks == 0) {return(failed("Data bitmap full. Cannot write inode.")); }
-		//
-		// 	// Collect all indexes in a list
-		// 	block_indexes[count_free] = code_blocks;
-		// 	count_free++;
-		// }
 
 /*-----------------------------------------------------------------------------*/
 BYTE* get_block(int sector, int offset, int n){
@@ -782,15 +773,11 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 }
 
 //writes new record to the MFD
-
-// TODO: averiguar isso,
-// write2 tem que ter um comportamento diferenciado para diretorio
-// ou para arquivo ou para softlink etc  .
 int save_record(T_RECORD* rec){
 	// char* buffer = (char*) malloc(sizeof(T_RECORD));
 	// memcpy(buffer, rec, sizeof(T_RECORD));
 
-	printf("Saving record at MFD\n");
+	// printf("Saving record at MFD\n");
 	writeMFD = true;
 	int r = write2(ROOT_INODE, (char*)rec, sizeof(T_RECORD));
 	writeMFD = false;
@@ -801,16 +788,16 @@ int save_record(T_RECORD* rec){
 
 int new_file(char* filename, T_INODE* inode){
 
-	printf("New file 0\n");
+	// printf("New file 0\n");
 
 	if( !is_valid_filename(filename)) return(failed("New_file: Invalid Filename."));
 
-	printf("New file 1\n");
+	// printf("New file 1\n");
 
 	free(inode);
 	inode = blank_inode();
 
-	printf("New file 2\n");
+	// printf("New file 2\n");
 
 	DWORD inode_index = next_bitmap_index(BITMAP_INODES, BIT_FREE);
 	if(inode_index == NOT_FOUND)
@@ -818,12 +805,12 @@ int new_file(char* filename, T_INODE* inode){
 	else if(inode_index < FIRST_VALID_BIT)
 		return(failed("Failed bitmap query."));
 
-	printf("New file 3\n");
+	// printf("New file 3\n");
 
 	if(save_inode(inode_index, inode) != SUCCESS)
 		return(failed("[NewFile]Failed to save inode."));
 
-	printf("New file 4\n");
+	// printf("New file 4\n");
 
 	// new file - record creation
 	T_RECORD* rec = blank_record();
@@ -831,12 +818,12 @@ int new_file(char* filename, T_INODE* inode){
 	rec->TypeVal 			= TYPEVAL_REGULAR;
 	strncpy(rec->name, filename, strlen(filename));
 
-	printf("New file 5\n");
+	// printf("New file 5\n");
 
 	//adds record to root directory
 	if(save_record(rec) != SUCCESS) return(failed("NewFile: Failed to save record"));
 
-	printf("New file 6\n");
+	// printf("New file 6\n");
 
 	return SUCCESS;
 }
@@ -857,14 +844,12 @@ int set_file_open(T_INODE* file_inode){
 		// check if position is not occupied by another file
 		if(fopen[i].inode == NULL){
 
-			printf("Adicionei arquivo na posicao: %d\n", i);
+			// printf("Adicionei arquivo na posicao: %d\n", i);
 
 			fopen[i].handle = i;
 			fopen[i].inode 	= file_inode;
 			fopen[i].current_pointer = 0;
 			fopen[i].inode_index = INVALID;
-			// TODO!!! tem que achar o inode index junto com o inode
-			// para salvar no arquivo aberto.
 
 			mounted->root->num_open_files++;
 			return i;
@@ -875,7 +860,7 @@ int set_file_open(T_INODE* file_inode){
 
 int set_file_close(FILE2 handle){
 	if(handle >= MAX_FILES_OPEN || handle < 0){
-		print("Handle out of bounds.");
+		// print("Handle out of bounds.");
 		return FAILED;
 	}
 	if (!is_mounted())   return(failed("SetFileClose failed 1"));
@@ -884,7 +869,7 @@ int set_file_close(FILE2 handle){
 	T_FOPEN* fopen = mounted->root->open_files;
 
 	if(fopen[handle].inode == NULL) {
-		print("File handle does not correspond to an open file.");
+		// print("File handle does not correspond to an open file.");
 	}
 	else mounted->root->num_open_files--;
 
@@ -892,7 +877,6 @@ int set_file_close(FILE2 handle){
 	fopen[handle].inode 		= NULL;
 	fopen[handle].current_pointer = 0;
 	fopen[handle].inode_index 	=	-1;
-	// TODO nao sei se botamos o handle -1 tbm só pra garantir
 
 	return SUCCESS;
 }
@@ -902,14 +886,14 @@ int init_open_files(){
 	// if(!is_mounted()) return FAILED;
 	// if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
 
-	printf("Openfiles 0\n");
+	// printf("Openfiles 0\n");
 
 	// if(mounted->root->open_files == NULL){
 	// 	mounted->root->open_files =
 	// 		(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
 	// }
 
-	printf("Openfiles 1\n");
+	// printf("Openfiles 1\n");
 	// T_FOPEN* fopen = mounted->root->open_files;
 	int i;
 	for(i=0; i < MAX_FILES_OPEN; i++){
@@ -917,7 +901,7 @@ int init_open_files(){
 		mounted->root->open_files[i].current_pointer = 0;
 		mounted->root->open_files[i].handle = i; // TODO: ou entao botar um handle invalido ate ser usado
 	}
-	printf("Openfiles 2\n");
+	// printf("Openfiles 2\n");
 
 	return SUCCESS;
 }
@@ -1038,7 +1022,6 @@ int remove_record(char* filename){
 		return FAILED;
 
 	// percorre blocos de dados do diretorio raiz buscando registro
-	// TODO
 
 	return SUCCESS;
 }
@@ -1053,23 +1036,22 @@ Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para
 int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
-	printf("F1\n");
+	// printf("F1\n");
 	// Mount partition first.
 	mount(partition);
 	// Initialize the partition starting area.
 	if(initialize_superblock(sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
-	printf("F2\n");
+	// printf("F2\n");
 	if(initialize_inode_area() != SUCCESS)
 		return(failed("Format2: Failed to initialize inode area"));
-	printf("F3\n");
+	// printf("F3\n");
 
 	if(initialize_bitmaps() != SUCCESS)
 		return(failed("Format2: Failed to initialize bitmap area"));
-	printf("F4\n");
+	// printf("F4\n");
 
-	umount(); // TODO: verificar se mantem montado apos formatacao
-	// mas acho que deve desmontar.
+	umount();
 
 	// Afterwards: the rest is data blocks.
 	// first block onwards after inodes is reserved to
@@ -1106,7 +1088,6 @@ int mount(int partition) {
 
 	mounted->fst_inode_sector = inode_s0;
 	mounted->fst_data_sector = inode_s0 + sb->inodeAreaSize * sb->blockSize;
-	// TODO: REVISAR
 
 	mounted->pointers_per_block =
 			mounted->superblock->blockSize * SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
@@ -1129,12 +1110,12 @@ int umount(void) {
 	if(mounted == NULL){
 		return(failed("No partition to unmount."));
 	}
-	printf("Unm1\n");
+	// printf("Unm1\n");
 
 	if(closedir2() != SUCCESS){
 		return(failed("Unmount failed: could not close root dir."));
 	}
-	printf("Unm2\n");
+	// printf("Unm2\n");
 
 	mounted->id = -1;
 	free(mounted->root);
@@ -1142,12 +1123,12 @@ int umount(void) {
 	mounted->root = NULL;
 	mounted->superblock = NULL;
 
-	printf("Unm3\n");
+	// printf("Unm3\n");
 
 	free(mounted);
 	mounted = NULL;
 
-	printf("Unmnt. Last\n");
+	// printf("Unmnt. Last\n");
 	return SUCCESS;
 }
 
@@ -1165,7 +1146,7 @@ FILE2 create2 (char *filename) {
 	if(opendir2() != SUCCESS) return failed("Directory must be opened.");
 	if(!is_valid_filename(filename)) return failed("Invalid filename");
 
-	printf("Create 1\n");
+	// printf("Create 1\n");
 
 	DWORD inode_index = next_bitmap_index(BITMAP_INODES, BIT_FREE);
 	if(inode_index == NOT_FOUND)
@@ -1175,19 +1156,19 @@ FILE2 create2 (char *filename) {
 
 	T_RECORD* record = alloc_record(1);
 
-	printf("Create 2\n");
+	// printf("Create 2\n");
 
 	if(find_entry(filename, record) == SUCCESS){
 		return failed("Filename already exists.");
 	}
 
-	printf("Create 3\n");
+	// printf("Create 3\n");
 
 	T_INODE* inode = alloc_inode(1);
 	if(new_file(filename, inode) != SUCCESS)
 		return failed("Create: Failed to create new file");
 	// atualizar bitmap
-	printf("Create 4\n");
+	// printf("Create 4\n");
 
 	free(record);
 	record = blank_record();
@@ -1195,9 +1176,8 @@ FILE2 create2 (char *filename) {
 	memcpy(record->name, filename, size);
 	record->TypeVal = TYPEVAL_REGULAR;
 	record->inodeNumber = inode_index;
-	// revisar.
 
-	printf("Create Last\n");
+	// printf("Create Last\n");
 
 	FILE2 handle = set_file_open(inode);
 	return handle;
@@ -1219,11 +1199,7 @@ int delete2 (char *filename) {
 		return(failed("Delete: File does not exist."));
 	}
 
-	if (record->TypeVal == TYPEVAL_LINK)
-	{
-		// TODO: apenas decrementar refCounter no inode
-	}
-	else
+	if (record->TypeVal != TYPEVAL_LINK)
 		remove_file_content(record->inodeNumber);
 
 	remove_record(filename);
@@ -1242,15 +1218,9 @@ FILE2 open2 (char *filename) {
 	if(opendir2() != SUCCESS) return(failed("Could not open MFD."));
 
 
-	// printf("Openfile 1\n");
-
 	if(mounted->root->inode==NULL)
 		return FAILED;
 
-	// printf("Openfile 2\n");
-
-	// TODO: modify sweep_root to return a RECORD instead of a DIRENT
-	// which has inodeNumber, to be used with access_inode to get the node.
 	//T_INODE* f = search_root_for_filename(filename);
 	//if(f==NULL)
 		//return FAILED;
@@ -1258,12 +1228,6 @@ FILE2 open2 (char *filename) {
 	if(find_entry(filename, record)!=SUCCESS)
 		return failed("Could not find entry\n");
 	
-
-	// TODO: get inode from filename then open
-	//FILE2 handle = set_file_open(f);
-
-	// printf("Openfile 3\n");
-
 	FILE2 handle = 0;
 	return handle;
 }
@@ -1291,8 +1255,6 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	if(!is_root_open()) return failed("Directory must be opened.");
 	// if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 	if(size <= 0) return failed("Invalid number of bytes.");
-	// TODO: verificar se pode numero negativo de bytes
-	// (ler os x bytes anteriores ao current pointer e atualizar o current)
 
 	T_FOPEN f = mounted->root->open_files[handle];
 	DWORD offset;
@@ -1323,8 +1285,6 @@ int read2 (FILE2 handle, char *buffer, int size) {
 
 		if( (f.current_pointer + size) > f.inode->bytesFileSize){
 			return failed("Bytes to read exceed remaining bytes in file.");
-			// TODO: ler ate o fim mesmo assim?
-			// "x bytes menos que size até EOF"
 		}
 
 		// map current_pointer (Nth byte) to a specific block and sector
@@ -1354,8 +1314,6 @@ int write_block(DWORD block_index, char* data_buffer, DWORD initial_byte, int da
 	DWORD sector_byte = starting_byte;
 	DWORD bytes_to_copy;
 
-	//
-
 	while(sector < mounted->superblock->blockSize && current_data_byte < data_size){
 		read_sector(sector, sector_buffer);
 
@@ -1371,7 +1329,6 @@ int write_block(DWORD block_index, char* data_buffer, DWORD initial_byte, int da
 
 	}
 
-	// se nao deu pau ainda,
 	set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_OCCUPIED);
 	return SUCCESS;
 
@@ -1403,7 +1360,7 @@ int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_bloc
 	if(future_blocks <= 2){
 		for(int i=current_blocks; i<new_num_blocks; i++){
 			// save value of indexes to dataPtr
-			printf("allocating block %d\n", i);
+			// printf("allocating block %d\n", i);
 
 			file_inode->dataPtr[i] = indexes[written_blocks];
 
@@ -1445,33 +1402,6 @@ int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_bloc
 		
 	}
 
-	// allocate at doubleIndPts, from 2+pointers_per_block to maximum_indexes
-	// offset = current_blocks - (2+pointers_per_block);
-	// end = new_num_blocks - written_blocks;
-	// if(offset>0 && future_blocks <= maximum_indexes){
-
-	// 	if(file_inode->doubleIndPtr==NULL){
-	// 		// create ind block to ind block
-	// 	}
-		
-	// 	for(int i=offset; i<end; i++){
-	// 		int double_to_single = offset % pointers_per_block;
-
-	// 		// read index block pointed by first 
-	// 		BYTE* buffer = alloc_sector();
-	// 		read_sector(file_inode->doubleIndPtr, buffer);
-	// 		// get value of single indirect
-	// 		if((DWORD)buffer[0]==NULL)
-	// 		{
-	// 			// create ind block to data block
-	// 		} 
-
-	// 		end = new_num_blocks - written_blocks; 
-	// 		for(int j=0; j<end; end++){
-	// 			printf("Write index to index block\n");
-	// 		}
-	// 	}
-	// }
 	return SUCCESS;
 }
 
@@ -1553,7 +1483,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	T_INODE* file_inode;
 	
 
-	printf("Writing 0\n");
+	// printf("Writing 0\n");
 
 	if(f.inode==NULL){}
 
@@ -1626,24 +1556,24 @@ int write2 (FILE2 handle, char *buffer, int size) {
 				}
 
 			}
-			printf("Writing 33\n");
+			// printf("Writing 33\n");
 
 			// ok, tem blocos suficientes para dados.
 			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
 			// int future_size_blocks = file_inode->blocksFileSize + num_new_blocks;
-			printf("Writing 4\n");
+			// printf("Writing 4\n");
 
 			allocate_new_indexes(file_inode, indexes, num_new_blocks);
 
 			if(writeMFD){
 				// write_data(file_inode, file_inode->blocksFileSize, buffer, size);
 				for(int i=0; i<num_new_blocks;i++) {
-					printf("Escrevendo registro\n");
+					// printf("Escrevendo registro\n");
 					write_block(indexes[i], buffer, file_inode->bytesFileSize, size);
 				}
 			}
 			else {
-				printf("Escrevendo arquivo\n");
+				// printf("Escrevendo arquivo\n");
 				write_data(file_inode, f.current_pointer, buffer, size);
 				f.current_pointer = f.current_pointer + size + 1;
 
@@ -1693,22 +1623,22 @@ int opendir2 (void) {
 
 	if(!is_mounted()) return(failed("No partition mounted yet."));
 
-	printf("OpD 1\n");
+	// printf("OpD 1\n");
 	// Get mounted partition, load root directory, set entry to zero.
 	if(!is_root_loaded())
 		load_root();
 
-	printf("OpD 2\n");
+	// printf("OpD 2\n");
 
 	mounted->root->open = true;
 	mounted->root->entry_index = 0;
-	printf("OpD 3\n");
+	// printf("OpD 3\n");
 
 	//  Initialize open files
 	if(init_open_files() != SUCCESS) {
 		return failed("Failed to initialize open files");	}
 
- 	printf("OpDir final\n");
+ 	// printf("OpDir final\n");
 
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
@@ -1763,7 +1693,7 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 	// We were given a block, now read sector by sector.
 	for (sector = 0; sector < total_sects; sector++){
 		if(read_sector(offset + sector, buffer) != SUCCESS){
-			printf("FindEIB: failed to read sector %d of block %d", sector, entry_block);
+			// printf("FindEIB: failed to read sector %d of block %d", sector, entry_block);
 			return(failed("FindEIB: failed to read a sector"));
 		}
 		// Buffer (sector of an entry block) now holds about 4 entries.
@@ -1774,7 +1704,7 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 
 			if (strcmp(entry_name, filename) == 0){
 				memcpy(record, &(buffer[e*entry_size]), sizeof(T_RECORD));
-				printf("ACHOU A ENTRADA\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				// printf("ACHOU A ENTRADA\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
 				return record->inodeNumber;
 			}
 		}
@@ -1796,7 +1726,7 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 
 	for(s=0; s < total_sects; s++ ){
 		if(read_sector(offset + s, buffer) != SUCCESS){
-			printf("Sweep: failed to read sector %d of block %d", s, index_block);
+			// printf("Sweep: failed to read sector %d of block %d", s, index_block);
 			return(failed("Sweep: failed to read a sector"));
 		}
 
@@ -1804,7 +1734,7 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 			// Each pointer points to an ENTRY BLOCK.
 			entry_block = to_int(&(buffer[i*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
 			if(find_entry_in_block(entry_block, filename, record) > 0){
-				printf("ACHOU A ENTRADA INDIRETAMENTE\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				// printf("ACHOU A ENTRADA INDIRETAMENTE\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
 				return 1;
 			}
 		}
@@ -1829,9 +1759,6 @@ int find_entry(char* filename, T_RECORD* record) {
 	record = alloc_record(1);
 	BYTE* buffer = alloc_sector();
 	int total_sects = sb->blockSize;
-
-	// TODO: verificar se ponteiro dentro do inode vai para índice de bloco absoluto
-	// ou relativo a particao
 
 	// Directory structure:
 	// dataPtr[0] --> Entry block (4 entries per sector).
@@ -1871,7 +1798,7 @@ int find_entry(char* filename, T_RECORD* record) {
 		// Valid index
 		for(s=0; s < total_sects; s++){
 			if(read_sector(offset + s, buffer) != SUCCESS){
-				printf("Sweep: failed to read sector %d of block %d", s, index_block);
+				// printf("Sweep: failed to read sector %d of block %d", s, index_block);
 				return(failed("Sweep: failed to read a sector"));
 			}
 			for(i=0; i<total_ptrs; i++){
@@ -1879,13 +1806,13 @@ int find_entry(char* filename, T_RECORD* record) {
 				inner_index_block = (DWORD)buffer[i*DATA_PTR_SIZE_BYTES];
 
 				if(find_indirect_entry(inner_index_block, filename, record) > NOT_FOUND){
-					print("Found entry successfully");
+					// print("Found entry successfully");
 					return SUCCESS;
 				}
 			}
 		}
 	}
-	printf("Filename %s not found in root\n", filename);
+	// printf("Filename %s not found in root\n", filename);
 	return FAILED;
 }
 
@@ -1945,10 +1872,10 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 		DWORD pointer_index = block_key - 2;
 		DWORD pointer_sector = pointer_index / pps;
 		if(debugging){
-			printf("SINGLE|| Entry: %u \n", index);
-			printf("NroPtr: %u | ", pointer_index);
-			printf("SetorPtr %u | ItemPtr %u | ",pointer_sector,pointer_index%pps);
-			printf("Vou ler offset: %u e setor %u\n", offset,pointer_sector);
+			// printf("SINGLE|| Entry: %u \n", index);
+			// printf("NroPtr: %u | ", pointer_index);
+			// printf("SetorPtr %u | ItemPtr %u | ",pointer_sector,pointer_index%pps);
+			// printf("Vou ler offset: %u e setor %u\n", offset,pointer_sector);
 		}
 		if(read_sector(offset+pointer_sector, buffer) != SUCCESS)
 			return(failed("Womp2 womp"));
@@ -1965,10 +1892,10 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 		DWORD pointer_sector_dind = pointer_index/ppb/pps;
 
 		if(debugging){
-			printf("DOUBLE||| Entry: %u \n", index);
-			printf("NroPtrD: %u | ", pointer_index/ppb);
-			printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,pointer_sector_dind % pps);
-			printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
+			// printf("DOUBLE||| Entry: %u \n", index);
+			// printf("NroPtrD: %u | ", pointer_index/ppb);
+			// printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,pointer_sector_dind % pps);
+			// printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
 		}
 
 		if(read_sector(offset+pointer_sector_dind, buffer) != SUCCESS)
@@ -1992,10 +1919,6 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer ) {
 	}
 
 	// READING SECTOR FROM FINAL BLOCK
-
-	// TODO: o primeiro bloco de dados é ocupado garantidamente por algo?
-	// Provavelmente sim já que qualquer nivel de in/direcao preciso de um bloco de entradas e tal
-	//memcpy entryblock dword <-buffer uchars
 
 	if(entry_block <= INVALID) return NOT_FOUND;
 	else {
@@ -2111,8 +2034,6 @@ int sln2 (char *linkname, char *filename) {
 	}
 
 	// reserva bloco para o arquivo
-	// TODO: como essa funcao ja abre e salva o bitmap, estou
-	// repensando se vale a pena (em vez de so salvar no fim de tudo quando deu certo)
 	if(set_bitmap_index(BITMAP_BLOCKS, indice_bloco, BIT_OCCUPIED) != SUCCESS)
 		return failed("Failed to set blocks bitmap");
 	if(set_bitmap_index(BITMAP_INODES, indice_inode, BIT_OCCUPIED) != SUCCESS)
@@ -2122,22 +2043,11 @@ int sln2 (char *linkname, char *filename) {
 	int setor_inicial = indice_bloco * mounted->superblock->blockSize;
 	int base_particao = mounted->mbr_data->initial_sector;
 
-	// // TODO: apagar conteudo do bloco?
-	// BYTE* buffer = (BYTE*)malloc(sizeof(BYTE)*SECTOR_SIZE)
-	// int i;
-	// for (i = 0; i < SECTOR_SIZE; i++)
-	// 	buffer[i] = 0;
-	// for (i = 0; i < mounted->superblock->blockSize; i++)
-	// 	write_sector(base_particao + setor_inicial + i, buffer);
-
 	// copia do nome do arquivo para o buffer
 	BYTE* buffer = alloc_sector();
 	memcpy(buffer, filename, sizeof(char)*strlen(filename));
 
 	// escreve o bloco no disco
-	// TODO: ta escrevendo apenas um setor
-	// -> nao é necessariamente ruim se for garantidamente o primeiro setor,
-	// pois o setor tem 256 bytes e o filename tem 51 no max.
 	if (write_sector(base_particao + setor_inicial, buffer) != SUCCESS) {
 
 		if (set_bitmap_index(BITMAP_BLOCKS, indice_bloco, BIT_FREE))
@@ -2152,10 +2062,6 @@ int sln2 (char *linkname, char *filename) {
 	inode->bytesFileSize = sizeof(char)*(strlen(filename)+1); // +1 inclui \0
 	inode->dataPtr[0] = indice_bloco;
 	save_inode(indice_inode, inode);
-	// TODO: acho que RefCounter != 0 é só para arquivos originais
-	// que sao apontados por hardlinks.
-	// -> acho mais coerente deixar o padrão como 1. se o original é apagado mas o
-	//		hardlink não, o contador vai indicar 1 referencia
 	
 	// inicializacao da entrada no dir e salvamento no disco
 	T_RECORD* registro = blank_record();
@@ -2201,14 +2107,11 @@ int hln2(char *linkname, char *filename) {
 	T_INODE* inode = alloc_inode(1);
 	if(access_inode(indice_inode, inode) != SUCCESS) return FAILED;
 	inode->RefCounter += 1;
-	// TODO: precisa salvar inode no disco?
 
 	// inicializacao da entrada no dir e salvamento no disco
 	T_RECORD* registro = blank_record();
 	registro->TypeVal = TYPEVAL_LINK;
 	if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
-	// 51 contando o /0 da string
-	// ops acho que strlen nao conta o \0. MAX_FILENAME_SIZE é 50.
 	strncpy(registro->name, linkname, strlen(filename)+1);
 	registro->inodeNumber = indice_inode;
 
