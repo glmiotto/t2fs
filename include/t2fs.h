@@ -3,7 +3,6 @@
 #ifndef __LIBT2FS___
 #define __LIBT2FS___
 
-
 typedef int FILE2;
 typedef int boolean;
 
@@ -36,8 +35,8 @@ typedef struct t2fs_record 		 	T_RECORD;
 #define INODE_SIZE_BYTES 32
 #define ENTRY_SIZE_BYTES sizeof(T_RECORD)
 #define DATA_PTR_SIZE_BYTES sizeof(DWORD)
-#define INODES_PER_SECTOR SECTOR_SIZE / INODE_SIZE_BYTES
-#define ENTRIES_PER_SECTOR SECTOR_SIZE / ENTRY_SIZE_BYTES
+#define INODES_PER_SECTOR (SECTOR_SIZE / INODE_SIZE_BYTES)
+#define ENTRIES_PER_SECTOR (SECTOR_SIZE / ENTRY_SIZE_BYTES)
 
 #define	BITMAP_INODES	0
 #define	BITMAP_BLOCKS	1
@@ -62,6 +61,28 @@ typedef struct t2fs_record 		 	T_RECORD;
 /* **************************************************************** */
 
 /* **************************************************************** */
+
+
+typedef struct Map_position_in_inode{
+
+  DWORD indirection_level;
+  DWORD block_key;
+  DWORD sector_key;
+  DWORD sector_shift;
+  DWORD data_block;
+  DWORD sector_address;
+  DWORD buffer_index;
+  DWORD single_pointer_to_block;
+  DWORD single_pointer_sector;
+  DWORD single_pointer_index;
+  DWORD single_sector_address;
+  DWORD single_buffer_index;
+  DWORD double_pointer_to_block;
+  DWORD double_pointer_sector;
+  DWORD double_pointer_index;
+  DWORD double_sector_address;
+  DWORD double_buffer_index;
+} MAP;
 
 
 typedef struct Open_file{
@@ -115,14 +136,13 @@ typedef struct Mbr{
 } MBR;
 
 int init();
-int initialize_superblock(int sectors_per_block);
+int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block);
 int init_open_files();
-void calculate_checksum(T_SUPERBLOCK* sb);
+int calculate_checksum(T_SUPERBLOCK sb);
 
 int load_mbr(BYTE* master_sector, MBR* mbr);
 int load_superblock();
 int load_root();
-
 
 // Validation
 boolean is_root_open();
@@ -131,10 +151,12 @@ boolean is_mounted();
 T_MOUNTED* get_mounted();
 boolean is_valid_filename(char* filename);
 boolean is_valid_handle(FILE2 handle);
+
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);
 BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);
 BYTE* WORD_to_BYTE(WORD value, int num_bytes);
+
 // Conversion disk<->logical structures
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb);
 int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode);
@@ -164,19 +186,28 @@ int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb);
 /* Index mapping & search */
 DWORD map_inode_to_sector(int inode_index);
 int access_inode(int inode_index, T_INODE* return_inode);
-int new_file(char* filename, T_INODE* inode);
+int new_file(char* filename, T_INODE** inode);
 
 int save_inode(DWORD index, T_INODE* inode);
+int update_inode(DWORD index, T_INODE inode);
 int save_record(T_RECORD* record);
 int save_superblock();
 
+int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size );
+
 // Directory
-int find_entry(char* filename, T_RECORD* record);
+int find_entry(char* filename, T_RECORD** record);
 int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record);
 int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record);
 
-int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE* buffer);
-int map_index_to_record(DWORD index, T_RECORD* record);
+
+int delete_entry(char* filename);
+int delete_indirect_entry(DWORD index_block, char* filename);
+int delete_entry_in_block(DWORD entry_block, char* filename);
+
+
+int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE** buffer, MAP* map);
+int map_index_to_record(DWORD index, T_RECORD** record, MAP* map);
 // Bitmap
 int next_bitmap_index(int bitmap_handle, int bit_value);
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
@@ -190,6 +221,8 @@ BYTE* get_block(int sector, int offset, int n);
 int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size);
 int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size);
 
+int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks);
+int write_data(T_INODE* inode, int position, char *buffer, int size);
 
 /* **************************************************************** */
 

@@ -23,7 +23,7 @@ PROG = $(SRC_DIR)/$(name).c
 LIB=lib$(name).a
 
 all: $(TARGET)
-	ar -crs $(LIB) $^ $(OBJS)
+	ar -crs ./lib/$(LIB) $^ $(OBJS)
 
 $(TARGET): $(PROG)
 		$(CC) -o $@ $< -I$(INC_DIR) $(CFLAGS)
@@ -48,14 +48,6 @@ op:
 tst_op:
 	gcc -o $(EXMP_DIR)/tst_op $(EXMP_DIR)/tst_op.c -L ./ -l$(name) -lm -Wall
 
-op2:
-	make clean
-	make all
-	make tst_op2
-
-tst_op2:
-	gcc -o $(EXMP_DIR)/tst_op2 $(EXMP_DIR)/tst_op2.c -L ./ -l$(name) -lm -Wall
-	
 
 t_mapping:
 	gcc -o $(EXMP_DIR)/t_mapping $(EXMP_DIR)/t_mapping.c -L ./ -l$(name) -lm -Wall
