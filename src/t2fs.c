@@ -762,7 +762,7 @@ MAP* blank_map() {
 int new_record2(T_RECORD* rec){
 	if (init() != SUCCESS) return failed("Failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_open()) return failed("Directory must be opened.");
+	if (!is_root_loaded()) return failed("Directory must be opened.");
 	if (rec == NULL) return failed("Bad record");
 
 	T_DIRECTORY* rt = mounted->root;
@@ -1024,7 +1024,7 @@ int new_record2(T_RECORD* rec){
 int new_record(T_RECORD* rec){
 	if (init() != SUCCESS) return failed("Failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_open()) return failed("Directory must be opened.");
+	if (!is_root_loaded()) return failed("Directory must be opened.");
 	if (rec == NULL) return failed("Bad record");
 
 	T_DIRECTORY* rt = mounted->root;
@@ -1153,7 +1153,7 @@ int new_file(char* filename, T_INODE** inode){
 int set_file_open(T_INODE* file_inode){
 
 	if (!is_mounted())   return(failed("SetFileOpen failed 1"));
-	if (!is_root_open()) return(failed("SetFileOpen failed 2"));
+	if (!is_root_loaded()) return(failed("SetFileOpen failed 2"));
 
 	T_FOPEN* fopen = mounted->root->open_files;
 
@@ -1187,7 +1187,7 @@ int set_file_close(FILE2 handle){
 		return FAILED;
 	}
 	if (!is_mounted())   return(failed("SetFileClose failed 1"));
-	if (!is_root_open()) return(failed("SetFileClose failed 2"));
+	if (!is_root_loaded()) return(failed("SetFileClose failed 2"));
 
 	T_FOPEN* fopen = mounted->root->open_files;
 
@@ -1508,7 +1508,7 @@ Função:	Função usada para remover (apagar) um arquivo do disco.
 int delete2 (char *filename) {
 	if (init() != SUCCESS) return(failed("delete2: failed to initialize"));
 	if(!is_mounted()) return(failed("No partition mounted."));
-	if(!is_root_open()) return(failed("Could not open MFD."));
+	if(!is_root_loaded()) return(failed("Could not open MFD."));
 	if(!is_valid_filename(filename)) return(failed("Delete: Filename invalid"));
 
 	T_RECORD* record = alloc_record(1);
@@ -1545,7 +1545,7 @@ Função:	Função que abre um arquivo existente no disco.
 FILE2 open2 (char *filename) {
 	if (init() != SUCCESS) return(failed("open2: failed to initialize"));
 	if(!is_mounted()) return(failed("No partition mounted."));
-	if(!is_root_open()) return(failed("Directory must be opened."));
+	if(!is_root_loaded()) return(failed("Directory must be opened."));
 
 	if(mounted->root->inode==NULL)
 		return FAILED;
@@ -1612,7 +1612,7 @@ int close2 (FILE2 handle) {
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
-	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_root_loaded()) return failed("Directory must be opened.");
 	//if(!is_valid_handle(handle)) return failed("Invalid file handle."); // cant compile without a function
 	return set_file_close(handle);
 }
@@ -1626,7 +1626,7 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
-	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_root_loaded()) return failed("Directory must be opened.");
 	//f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
 	if(size <= 0) return failed("Invalid number of bytes.");
 	// TODO: verificar se pode numero negativo de bytes
@@ -1726,7 +1726,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
-	if(!is_root_open()) return failed("Directory must be opened.");
+	if(!is_root_loaded()) return failed("Directory must be opened.");
 	// if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 	if(size <= 0) return failed("Invalid number of bytes.");
 
@@ -2089,7 +2089,7 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 int find_entry(char* filename, T_RECORD** record) {
 	// Validation
 	if(!is_mounted()) return FAILED;
-	if(!is_root_open()) return FAILED;
+	if(!is_root_loaded()) return FAILED;
 	if(mounted->root->total_entries == 0) return FAILED;
 	if(mounted->root->inode == NULL) return failed("bad inode ptr");
 	if(!is_valid_filename(filename)) return failed("Filename invalid.");
@@ -2166,7 +2166,7 @@ int find_entry(char* filename, T_RECORD** record) {
 int delete_entry(char* filename) {
 	// Validation
 	if(!is_mounted()) return FAILED;
-	if(!is_root_open()) return FAILED;
+	if(!is_root_loaded()) return FAILED;
 	if(mounted->root->total_entries == 0) return FAILED;
 	if(mounted->root->inode == NULL) return failed("bad inode ptr");
 	if(!is_valid_filename(filename)) return failed("Filename invalid.");
@@ -2302,7 +2302,7 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 
 int map_index_to_record(DWORD index, T_RECORD** record, MAP* map){
 	if(!is_mounted()) 	return(failed("MITR no partition mounted yet."));
-	if(!is_root_open()) return(failed("MITR root not loaded"));
+	if(!is_root_loaded()) return(failed("MITR root not loaded"));
 	T_DIRECTORY*  rt = mounted->root;
 	T_SUPERBLOCK* sb = mounted->superblock;
 	if(index < 0) 							 		 return(failed("MITB bad negative index"));
@@ -2331,7 +2331,7 @@ int map_index_to_record(DWORD index, T_RECORD** record, MAP* map){
 int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE** buffer, MAP* map ) {
 
 	if(!is_mounted()) 	return(failed("MITB no partition mounted yet."));
-	if(!is_root_open()) return(failed("MITB root not loaded"));
+	if(!is_root_loaded()) return(failed("MITB root not loaded"));
 	T_DIRECTORY*  rt = mounted->root;
 	T_SUPERBLOCK* sb = mounted->superblock;
 
@@ -2559,7 +2559,7 @@ int sln2 (char *linkname, char *filename) {
 
 	if (init() != SUCCESS) return failed("sln2: failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_open()) return failed("Directory must be opened.");
+	if (!is_root_loaded()) return failed("Directory must be opened.");
 	if (!is_valid_filename(filename)) return(failed("Filename not valid."));
 	if (!is_valid_filename(linkname)) return(failed("Linkname not valid."));
 
@@ -2663,7 +2663,7 @@ Função:	Função usada para criar um caminho alternativo (hardlink)
 int hln2(char *linkname, char *filename) {
 	if (init() != SUCCESS) return failed("hln2: failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_open()) return failed("Directory must be opened.");
+	if (!is_root_loaded()) return failed("Directory must be opened.");
 	if (!is_valid_filename(filename)) return(failed("Filename not valid."));
 	if (!is_valid_filename(linkname)) return(failed("Linkname not valid."));
 	T_RECORD* record = alloc_record(1);
