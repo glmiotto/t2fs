@@ -1651,8 +1651,6 @@ int read2 (FILE2 handle, char *buffer, int size) {
 		// memcopy do sector para o BUFFER recebido, min(size, SECTORSIZE) bytes
 		// decrementa size
 		// update current pointer para o byte SEGUINTE ao ultimo lido.
-
-	}
 	return -1;
 }
 
