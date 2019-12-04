@@ -1,0 +1,112 @@
+Mounting invalid: OK
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 77
+Block size (in sectors): 1
+Disk size of partition (in blocks): 768
+Checksum: 2897628203
+Occupied (reserved) data bits range: 0-80
+bit ruim 0
+Failed to set reserved bit as occupied in blocks bitmap
+Format2: Failed to initialize bitmap area
+Error while formatting 1 with 1 spb: NOT OK
+Error while mounting 1: NOT OK
+No partition to unmount.
+Error while unmounting 1: NOT OK
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 39
+Block size (in sectors): 2
+Disk size of partition (in blocks): 384
+Checksum: 2897563089
+Occupied (reserved) data bits range: 0-42
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 39
+Block size (in sectors): 2
+Disk size of partition (in blocks): 384
+Checksum: 2897563089
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 20
+Block size (in sectors): 4
+Disk size of partition (in blocks): 192
+Checksum: 2897432228
+Occupied (reserved) data bits range: 0-23
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 20
+Block size (in sectors): 4
+Disk size of partition (in blocks): 192
+Checksum: 2897432228
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 10
+Block size (in sectors): 8
+Disk size of partition (in blocks): 96
+Checksum: 2897170190
+Occupied (reserved) data bits range: 0-13
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 10
+Block size (in sectors): 8
+Disk size of partition (in blocks): 96
+Checksum: 2897170190
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 5
+Block size (in sectors): 16
+Disk size of partition (in blocks): 48
+Checksum: 2896645955
+Occupied (reserved) data bits range: 0-8
+********************************
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 5
+Block size (in sectors): 16
+Disk size of partition (in blocks): 48
+Checksum: 2896645955

@@ -355,8 +355,11 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
 	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
+	
+
 	sb->freeBlocksBitmapSize = (WORD)
 		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
+
 
 	sb->Checksum = calculate_checksum(*sb);
 
@@ -370,7 +373,7 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 		}
 	}
 
-	//report_superblock(*sb, partition);
+	report_superblock(*sb, partition);
 
 	save_superblock(*sb, partition);
 	return SUCCESS;
@@ -531,11 +534,11 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 		sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
 
 
-	//printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
+	printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
 	for (bit= 0; bit < pre_data_blocks; bit++) {
 		// non addressable blocks are marked OCCUPIED forever
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			//printf("bit ruim %d\n", bit);
+			printf("bit ruim %d\n", bit);
 			return(failed("Failed to set reserved bit as occupied in blocks bitmap"));
 		}
 	}
