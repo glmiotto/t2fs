@@ -355,7 +355,7 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
 	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
-	
+
 
 	sb->freeBlocksBitmapSize = (WORD)
 		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
@@ -1648,6 +1648,162 @@ int write_data(T_INODE* inode, int position, char *buffer, int size) {
 	// write_block(position, buffer, position, size);
 	return FAILED;
 
+}
+
+
+int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
+
+	if (index == INVALID) return FAILED;
+	if (cur_block_number < 2){
+		file.inode->dataPtr[cur_block_number] = index;
+		return SUCCESS;
+	}
+	else if (cur_block_number < mounted->pointers_per_block){
+		int indirection_index = file.inode->singleIndPtr;
+		if (indirection_index == INVALID) {
+			DWORD indirection = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+			if(indirection < FIRST_VALID_BIT){
+				return failed("Write2: Failed to find enough free data blocks.");
+			}
+			else {
+				set_bitmap_index(BITMAP_BLOCKS, indirection, BIT_OCCUPIED);
+				file.inode->singleIndPtr = indirection;
+			}
+		}
+
+		indirection_index = file.inode->singleIndPtr;
+
+		int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
+		DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
+		DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
+
+		if(write_block(indirection_index, (BYTE*)&index,
+			sector_in_block*SECTOR_SIZE+shift_in_sector, DATA_PTR_SIZE_BYTES) != SUCCESS) return FAILED;
+
+		else return SUCCESS;
+	}
+	else return INVALID;
+}
+
+
+
+int get_data_block_index(T_FOPEN file, DWORD cur_block_number) {
+
+	if (cur_block_number < 2)
+		return file.inode->dataPtr[cur_block_number];
+	else if (cur_block_number < mounted->pointers_per_block){
+
+		DWORD indirection_index = file.inode->singleIndPtr;
+		if (indirection_index == INVALID) return INVALID;
+		BYTE* sector_buffer = alloc_sector();
+
+		int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
+		DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
+		DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
+
+		DWORD offset = mounted->mbr_data->initial_sector + indirection_index * mounted->superblock->blockSize;
+
+		if (read_sector(offset + sector_in_block, sector_buffer) != SUCCESS) return FAILED;
+
+		return (DWORD)sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES];
+
+	}
+	else return INVALID;
+}
+
+
+int write3 (FILE2 handle, char *buffer, int size) {
+	// Validation
+	if (init() != SUCCESS) return failed("close2: failed to initialize");
+	if(!is_mounted()) return failed("No partition mounted.");
+	if(!is_root_loaded()) return failed("Directory must be loaded.");
+	if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+	if(size <= 0) return failed("Invalid number of bytes.");
+
+	T_FOPEN f = mounted->root->open_files[handle];
+	if(f.inode == NULL) return FAILED;
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	// Capacidade maxima do arquivo agora.
+	DWORD current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
+
+	DWORD cur_block_number;
+	DWORD cur_block_index;
+	DWORD write_length;
+	DWORD cur_data_byte = 0;
+	DWORD byte_shift = f.current_pointer % bytes_per_block;
+
+	if (f.current_pointer + size < current_max_capacity) {
+		// alloc more blocks + update inode
+		DWORD number_new_blocks = 1+(f.current_pointer + size - current_max_capacity)/bytes_per_block;
+		int i;
+		DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*number_new_blocks);
+		for(i=0; i<number_new_blocks; i++){
+			indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+			if(indexes[i] < FIRST_VALID_BIT){
+				printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
+				return failed("Write2: Failed to find enough free data blocks.");
+			}
+			else set_bitmap_index(BITMAP_BLOCKS, indexes[i], BIT_OCCUPIED);
+		}
+		// ok, tem blocos suficientes para dados.
+		// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
+		int b ;
+		for (b=0; b < number_new_blocks; b++){
+			if(insert_data_block_index(f, f.inode->blocksFileSize + b, indexes[b]) <= 0) return FAILED;
+		}
+
+		f.inode->blocksFileSize += number_new_blocks;
+		current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
+	}
+
+	if (f.current_pointer + size <= current_max_capacity) {
+
+		// no need to allocate anything new.
+		while (cur_data_byte < size) {
+
+			cur_block_number = f.current_pointer / bytes_per_block;
+			cur_block_index = get_data_block_index(f, cur_block_number);
+			if(cur_block_index == INVALID) return FAILED;
+
+
+			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
+				write_length = size - cur_data_byte;
+			else write_length = bytes_per_block - byte_shift;
+
+			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
+
+			f.current_pointer += write_length;
+			if(f.current_pointer >= f.inode->bytesFileSize) {
+				f.inode->bytesFileSize = f.current_pointer+1;
+			}
+
+			byte_shift = f.current_pointer % bytes_per_block;
+			cur_data_byte += write_length;
+		}
+	}
+
+
+	// find inode, find data block that includess the current pointer
+	// if no data block allocated, alloc one or more according to bytes.
+	// start writing bytes
+	// if bytes exceed the block, jump to next block
+	// OR allocate another block
+	// therefore: calculate whether
+	// current pointer + number of new bytes > free space available until end of file blocks.
+	// if it is, check if you can allocate more blocks in disk before starting
+	// write bytes, update pointer, update size in bytes and size in blocks.
+	// if bytes ends at the very last byte,
+	// the pointer points to a byte position that does not exist yet.
+	// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
+
+	// alternate behavior:
+	// softlink: finds original file by name then do as above.
+	// hardlink: get original file by inode then same.
+	// update hardlink with size etc too.
+
+
+	return -1;
 }
 
 /*-----------------------------------------------------------------------------
