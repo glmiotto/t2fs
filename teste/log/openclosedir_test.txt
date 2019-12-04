@@ -9,35 +9,17 @@ Inode area size (in blocks): 20
 Block size (in sectors): 4
 Disk size of partition (in blocks): 192
 Checksum: 2897432228
-Occupied (reserved) data bits range: 0-23
-********************************
-Superblock info for partition 1
-Id: T2FS
-Version: 32306
-Superblock size(1 block, first in partition): 1
-Free Blocks Bitmap Size(in blocks): 1
-Free Inodes Bitmap Size(in blocks): 1
-Inode area size (in blocks): 20
-Block size (in sectors): 4
-Disk size of partition (in blocks): 192
-Checksum: 2897432228
 Opening dir: OK
 Creating file: OK - Handler 0
 Creating file: OK - Handler 1
 Closing file handler 0: OK
 Failed open file OK
-Found entry successfully
 Opening file "target": OK
 - Handler 0
 Closing file handler 0: OK
 Closing file handler 1: OK
-Found entry successfully
 Creating symlink to "target2": OK
-Found entry successfully
-Found entry successfully
 Creating hardlink to "target2": OK
-Found entry successfully
-Found entry successfully
 Opening symlink "linkfile": OK
 - Handler 0
 Closing dir: OK
@@ -68,13 +50,9 @@ Block size (in sectors): 4
 Disk size of partition (in blocks): 192
 Checksum: 2897432228
 Opening dir: OK
-Found entry successfully
 Opening file "target": OK
 Closing file handler 0: OK
-Found entry successfully
-Deleted entry successfully
 Deleting file "target2": OK
-Found entry successfully
 Opening file "hardlink": OK
 Closing file "hardlink": OK
 Trying to open invalid softlink: OK

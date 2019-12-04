@@ -9,18 +9,6 @@ Inode area size (in blocks): 20
 Block size (in sectors): 4
 Disk size of partition (in blocks): 192
 Checksum: 2897432228
-Occupied (reserved) data bits range: 0-23
-********************************
-Superblock info for partition 1
-Id: T2FS
-Version: 32306
-Superblock size(1 block, first in partition): 1
-Free Blocks Bitmap Size(in blocks): 1
-Free Inodes Bitmap Size(in blocks): 1
-Inode area size (in blocks): 20
-Block size (in sectors): 4
-Disk size of partition (in blocks): 192
-Checksum: 2897432228
 Opening dir: OK
 Creating rec name 1 - id 1: OK
 Creating rec name 2 - id 2: OK
@@ -700,274 +688,139 @@ Looking for record 134: OK
 		TypeVal: 135 - OK		
 Closing dir: OK
 Opening dir: OK
-Deleted entry successfully
 Deleting record 0: OK
-Deleted entry successfully
 Deleting record 1: OK
-Deleted entry successfully
 Deleting record 2: OK
-Deleted entry successfully
 Deleting record 3: OK
-Deleted entry successfully
 Deleting record 4: OK
-Deleted entry successfully
 Deleting record 5: OK
-Deleted entry successfully
 Deleting record 6: OK
-Deleted entry successfully
 Deleting record 7: OK
-Deleted entry successfully
 Deleting record 8: OK
-Deleted entry successfully
 Deleting record 9: OK
-Deleted entry successfully
 Deleting record 10: OK
-Deleted entry successfully
 Deleting record 11: OK
-Deleted entry successfully
 Deleting record 12: OK
-Deleted entry successfully
 Deleting record 13: OK
-Deleted entry successfully
 Deleting record 14: OK
-Deleted entry successfully
 Deleting record 15: OK
-Deleted entry successfully
 Deleting record 16: OK
-Deleted entry successfully
 Deleting record 17: OK
-Deleted entry successfully
 Deleting record 18: OK
-Deleted entry successfully
 Deleting record 19: OK
-Deleted entry successfully
 Deleting record 20: OK
-Deleted entry successfully
 Deleting record 21: OK
-Deleted entry successfully
 Deleting record 22: OK
-Deleted entry successfully
 Deleting record 23: OK
-Deleted entry successfully
 Deleting record 24: OK
-Deleted entry successfully
 Deleting record 25: OK
-Deleted entry successfully
 Deleting record 26: OK
-Deleted entry successfully
 Deleting record 27: OK
-Deleted entry successfully
 Deleting record 28: OK
-Deleted entry successfully
 Deleting record 29: OK
-Deleted entry successfully
 Deleting record 30: OK
-Deleted entry successfully
 Deleting record 31: OK
-Deleted entry successfully
 Deleting record 32: OK
-Deleted entry successfully
 Deleting record 33: OK
-Deleted entry successfully
 Deleting record 34: OK
-Deleted entry successfully
 Deleting record 35: OK
-Deleted entry successfully
 Deleting record 36: OK
-Deleted entry successfully
 Deleting record 37: OK
-Deleted entry successfully
 Deleting record 38: OK
-Deleted entry successfully
 Deleting record 39: OK
-Deleted entry successfully
 Deleting record 40: OK
-Deleted entry successfully
 Deleting record 41: OK
-Deleted entry successfully
 Deleting record 42: OK
-Deleted entry successfully
 Deleting record 43: OK
-Deleted entry successfully
 Deleting record 44: OK
-Deleted entry successfully
 Deleting record 45: OK
-Deleted entry successfully
 Deleting record 46: OK
-Deleted entry successfully
 Deleting record 47: OK
-Deleted entry successfully
 Deleting record 48: OK
-Deleted entry successfully
 Deleting record 49: OK
-Deleted entry successfully
 Deleting record 50: OK
-Deleted entry successfully
 Deleting record 51: OK
-Deleted entry successfully
 Deleting record 52: OK
-Deleted entry successfully
 Deleting record 53: OK
-Deleted entry successfully
 Deleting record 54: OK
-Deleted entry successfully
 Deleting record 55: OK
-Deleted entry successfully
 Deleting record 56: OK
-Deleted entry successfully
 Deleting record 57: OK
-Deleted entry successfully
 Deleting record 58: OK
-Deleted entry successfully
 Deleting record 59: OK
-Deleted entry successfully
 Deleting record 60: OK
-Deleted entry successfully
 Deleting record 61: OK
-Deleted entry successfully
 Deleting record 62: OK
-Deleted entry successfully
 Deleting record 63: OK
-Deleted entry successfully
 Deleting record 64: OK
-Deleted entry successfully
 Deleting record 65: OK
-Deleted entry successfully
 Deleting record 66: OK
-Deleted entry successfully
 Deleting record 67: OK
-Deleted entry successfully
 Deleting record 68: OK
-Deleted entry successfully
 Deleting record 69: OK
-Deleted entry successfully
 Deleting record 70: OK
-Deleted entry successfully
 Deleting record 71: OK
-Deleted entry successfully
 Deleting record 72: OK
-Deleted entry successfully
 Deleting record 73: OK
-Deleted entry successfully
 Deleting record 74: OK
-Deleted entry successfully
 Deleting record 75: OK
-Deleted entry successfully
 Deleting record 76: OK
-Deleted entry successfully
 Deleting record 77: OK
-Deleted entry successfully
 Deleting record 78: OK
-Deleted entry successfully
 Deleting record 79: OK
-Deleted entry successfully
 Deleting record 80: OK
-Deleted entry successfully
 Deleting record 81: OK
-Deleted entry successfully
 Deleting record 82: OK
-Deleted entry successfully
 Deleting record 83: OK
-Deleted entry successfully
 Deleting record 84: OK
-Deleted entry successfully
 Deleting record 85: OK
-Deleted entry successfully
 Deleting record 86: OK
-Deleted entry successfully
 Deleting record 87: OK
-Deleted entry successfully
 Deleting record 88: OK
-Deleted entry successfully
 Deleting record 89: OK
-Deleted entry successfully
 Deleting record 90: OK
-Deleted entry successfully
 Deleting record 91: OK
-Deleted entry successfully
 Deleting record 92: OK
-Deleted entry successfully
 Deleting record 93: OK
-Deleted entry successfully
 Deleting record 94: OK
-Deleted entry successfully
 Deleting record 95: OK
-Deleted entry successfully
 Deleting record 96: OK
-Deleted entry successfully
 Deleting record 97: OK
-Deleted entry successfully
 Deleting record 98: OK
-Deleted entry successfully
 Deleting record 99: OK
-Deleted entry successfully
 Deleting record 100: OK
-Deleted entry successfully
 Deleting record 101: OK
-Deleted entry successfully
 Deleting record 102: OK
-Deleted entry successfully
 Deleting record 103: OK
-Deleted entry successfully
 Deleting record 104: OK
-Deleted entry successfully
 Deleting record 105: OK
-Deleted entry successfully
 Deleting record 106: OK
-Deleted entry successfully
 Deleting record 107: OK
-Deleted entry successfully
 Deleting record 108: OK
-Deleted entry successfully
 Deleting record 109: OK
-Deleted entry successfully
 Deleting record 110: OK
-Deleted entry successfully
 Deleting record 111: OK
-Deleted entry successfully
 Deleting record 112: OK
-Deleted entry successfully
 Deleting record 113: OK
-Deleted entry successfully
 Deleting record 114: OK
-Deleted entry successfully
 Deleting record 115: OK
-Deleted entry successfully
 Deleting record 116: OK
-Deleted entry successfully
 Deleting record 117: OK
-Deleted entry successfully
 Deleting record 118: OK
-Deleted entry successfully
 Deleting record 119: OK
-Deleted entry successfully
 Deleting record 120: OK
-Deleted entry successfully
 Deleting record 121: OK
-Deleted entry successfully
 Deleting record 122: OK
-Deleted entry successfully
 Deleting record 123: OK
-Deleted entry successfully
 Deleting record 124: OK
-Deleted entry successfully
 Deleting record 125: OK
-Deleted entry successfully
 Deleting record 126: OK
-Deleted entry successfully
 Deleting record 127: OK
-Deleted entry successfully
 Deleting record 128: OK
-Deleted entry successfully
 Deleting record 129: OK
-Deleted entry successfully
 Deleting record 130: OK
-Deleted entry successfully
 Deleting record 131: OK
-Deleted entry successfully
 Deleting record 132: OK
-Deleted entry successfully
 Deleting record 133: OK
-Deleted entry successfully
 Deleting record 134: OK
 Closing dir: OK
