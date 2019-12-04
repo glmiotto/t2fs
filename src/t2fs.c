@@ -1532,7 +1532,7 @@ int delete2 (char *filename) {
 		}
 
 		else {
-			//remove_file_content(record->inodeNumber);
+			remove_file_content(record->inodeNumber);
 			delete_entry(filename);
 			return SUCCESS;
 		}
