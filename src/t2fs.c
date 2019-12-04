@@ -1555,38 +1555,59 @@ Função:	Função usada para realizar a leitura de uma certa quantidade
 		de bytes (size) de um arquivo.
 -----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size) {
-	return -1;
-	//
-	// // Validation
-	// if (init() != SUCCESS) return failed("close2: failed to initialize");
-	// if(!is_mounted()) return failed("No partition mounted.");
-	// if(!is_root_loaded()) return failed("Directory must be opened.");
-	// //f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
-	// if(size <= 0) return failed("Invalid number of bytes.");
-	// // TODO: verificar se pode numero negativo de bytes
-	// // (ler os x bytes anteriores ao current pointer e atualizar o current)
-	//
-	// T_FOPEN f = mounted->root->open_files[handle];
-	// DWORD offset;
-	// BYTE* sector_buffer = alloc_sector();
-	//
-	// if( (f.current_pointer + size) > f.inode->bytesFileSize){
-	// 		return failed("Bytes to read exceed remaining bytes in file.");
-	// 		// TODO: ler ate o fim mesmo assim?
-	// 		// "x bytes menos que size até EOF"
-	// 	}
-	//
-	// 	// map current_pointer (Nth byte) to a specific block and sector
-	//
-	// 	// if map to N+size is a different block/sector:
-	// 	// map para cada setor ou block subsequente
-	// 	// cada map retorna o setor
-	// 	// while (size > 0 )
-	// 	// memcopy do sector para o BUFFER recebido, min(size, SECTORSIZE) bytes
-	// 	// decrementa size
-	// 	// update current pointer para o byte SEGUINTE ao ultimo lido.
-	// return -1;
+	// Validation
+	if (init() != SUCCESS) return failed("close2: failed to initialize");
+	if(!is_mounted()) return failed("No partition mounted.");
+	if(!is_root_loaded()) return failed("Directory must be opened.");
+	//f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
+	if(size <= 0) return failed("Invalid number of bytes.");
+	// TODO: verificar se pode numero negativo de bytes
+	// (ler os x bytes anteriores ao current pointer e atualizar o current)
+	T_FOPEN f = mounted->root->open_files[handle];
+	if(f.inode == NULL) return FAILED;
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	// Capacidade maxima do arquivo agora.
+	DWORD max_capacity = f.inode->blocksFileSize * bytes_per_block;
+
+	DWORD cur_block_number;
+	DWORD cur_block_index;
+	DWORD read_length;
+	DWORD cur_data_byte = 0;
+	DWORD byte_shift = f.current_pointer % bytes_per_block;
+
+
+	while (cur_data_byte < size && cur_data_byte < max_capacity) {
+
+		cur_block_number = f.current_pointer / bytes_per_block;
+		cur_block_index = get_data_block_index(f, cur_block_number);
+		if(cur_block_index == INVALID) return FAILED;
+
+
+		if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
+			read_length = size - cur_data_byte;
+		else read_length = bytes_per_block - byte_shift;
+
+		write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, read_length);
+
+		f.current_pointer += read_length;
+		byte_shift = f.current_pointer % bytes_per_block;
+		cur_data_byte += read_length;
+	}
+
+	printf("String resultante lida: \n %s", buffer);
+	return SUCCESS;
 }
+
+// map current_pointer (Nth byte) to a specific block and sector
+
+// if map to N+size is a different block/sector:
+// map para cada setor ou block subsequente
+// cada map retorna o setor
+// while (size > 0 )
+// memcopy do sector para o BUFFER recebido, min(size, SECTORSIZE) bytes
+// decrementa size
+// update current pointer para o byte SEGUINTE ao ultimo lido.
 
 int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size ){
 
@@ -1628,6 +1649,40 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 
 	return SUCCESS;
 
+}
+
+int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size ){
+
+	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	DWORD offset = mounted->mbr_data->initial_sector + block_index*mounted->superblock->blockSize;
+	BYTE* sector_buffer = alloc_sector();
+	DWORD starting_sector = offset + (initial_byte % bytes_per_block) / SECTOR_SIZE;
+	DWORD starting_byte = (initial_byte % bytes_per_block) % SECTOR_SIZE;
+
+	DWORD current_data_byte = 0;
+	DWORD sector = starting_sector;
+	DWORD sector_byte = starting_byte;
+	DWORD bytes_to_copy;
+
+	int max_sector = mounted->mbr_data->initial_sector + (mounted->mbr_data->final_sector - mounted->mbr_data->initial_sector);
+
+	while(sector < max_sector && current_data_byte < data_size){
+		if(read_sector(sector, sector_buffer)) {
+			//printf("error at writeblock\n");
+			return -1;
+		}
+
+
+		if( (SECTOR_SIZE-sector_byte) < (data_size - current_data_byte))
+			bytes_to_copy = SECTOR_SIZE-sector_byte;
+		else
+			bytes_to_copy = data_size - current_data_byte;
+
+		memcpy(&(data_buffer[current_data_byte]), &(sector_buffer[sector_byte]), bytes_to_copy);
+		current_data_byte += bytes_to_copy;
+		sector_byte = 0;
+	}
+	return SUCCESS;
 }
 
 int write_data(T_INODE* inode, int position, char *buffer, int size) {
@@ -1712,7 +1767,7 @@ int get_data_block_index(T_FOPEN file, DWORD cur_block_number) {
 }
 
 
-int write3 (FILE2 handle, char *buffer, int size) {
+int write2 (FILE2 handle, char *buffer, int size) {
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
@@ -1783,34 +1838,32 @@ int write3 (FILE2 handle, char *buffer, int size) {
 		}
 	}
 
-
-	// find inode, find data block that includess the current pointer
-	// if no data block allocated, alloc one or more according to bytes.
-	// start writing bytes
-	// if bytes exceed the block, jump to next block
-	// OR allocate another block
-	// therefore: calculate whether
-	// current pointer + number of new bytes > free space available until end of file blocks.
-	// if it is, check if you can allocate more blocks in disk before starting
-	// write bytes, update pointer, update size in bytes and size in blocks.
-	// if bytes ends at the very last byte,
-	// the pointer points to a byte position that does not exist yet.
-	// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
-
-	// alternate behavior:
-	// softlink: finds original file by name then do as above.
-	// hardlink: get original file by inode then same.
-	// update hardlink with size etc too.
-
-
-	return -1;
+	return SUCCESS;
 }
+// find inode, find data block that includess the current pointer
+// if no data block allocated, alloc one or more according to bytes.
+// start writing bytes
+// if bytes exceed the block, jump to next block
+// OR allocate another block
+// therefore: calculate whether
+// current pointer + number of new bytes > free space available until end of file blocks.
+// if it is, check if you can allocate more blocks in disk before starting
+// write bytes, update pointer, update size in bytes and size in blocks.
+// if bytes ends at the very last byte,
+// the pointer points to a byte position that does not exist yet.
+// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
+
+// alternate behavior:
+// softlink: finds original file by name then do as above.
+// hardlink: get original file by inode then same.
+// update hardlink with size etc too.
+
 
 /*-----------------------------------------------------------------------------
 Função:	Função usada para realizar a escrita de uma certa quantidade
 		de bytes (size) de  um arquivo.
 -----------------------------------------------------------------------------*/
-int write2 (FILE2 handle, char *buffer, int size) {
+int write3 (FILE2 handle, char *buffer, int size) {
 	return -1;
 	// Validation
 // 	if (init() != SUCCESS) return failed("close2: failed to initialize");
