@@ -1555,6 +1555,7 @@ Função:	Função usada para realizar a leitura de uma certa quantidade
 		de bytes (size) de um arquivo.
 -----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size) {
+return -1;
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
@@ -1708,9 +1709,16 @@ int write_data(T_INODE* inode, int position, char *buffer, int size) {
 
 int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
 
+return -1;
+
 	if (index == INVALID) return FAILED;
 	if (cur_block_number < 2){
+
 		file.inode->dataPtr[cur_block_number] = index;
+
+
+	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
+
 		return SUCCESS;
 	}
 	else if (cur_block_number < mounted->pointers_per_block){
@@ -1723,6 +1731,7 @@ int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
 			else {
 				set_bitmap_index(BITMAP_BLOCKS, indirection, BIT_OCCUPIED);
 				file.inode->singleIndPtr = indirection;
+	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
 			}
 		}
 
@@ -1735,7 +1744,9 @@ int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
 		if(write_block(indirection_index, (BYTE*)&index,
 			sector_in_block*SECTOR_SIZE+shift_in_sector, DATA_PTR_SIZE_BYTES) != SUCCESS) return FAILED;
 
-		else return SUCCESS;
+		else {
+	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
+return SUCCESS;}
 	}
 	else return INVALID;
 }
@@ -1743,6 +1754,8 @@ int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
 
 
 int get_data_block_index(T_FOPEN file, DWORD cur_block_number) {
+
+return -1;
 
 	if (cur_block_number < 2)
 		return file.inode->dataPtr[cur_block_number];
@@ -1768,6 +1781,7 @@ int get_data_block_index(T_FOPEN file, DWORD cur_block_number) {
 
 
 int write2 (FILE2 handle, char *buffer, int size) {
+return -1;
 	// Validation
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
@@ -1782,34 +1796,45 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	// Capacidade maxima do arquivo agora.
 	DWORD current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
 
+	printf("Current max capac at %d\n",(int)current_max_capacity );
+	printf("Cur pointer at %d\n",(int)f.current_pointer);
+	printf("size to write %d\n",(int)size );
 	DWORD cur_block_number;
 	DWORD cur_block_index;
 	DWORD write_length;
 	DWORD cur_data_byte = 0;
 	DWORD byte_shift = f.current_pointer % bytes_per_block;
 
-	if (f.current_pointer + size < current_max_capacity) {
+	if (f.current_pointer + size > current_max_capacity) {
 		// alloc more blocks + update inode
 		DWORD number_new_blocks = 1+(f.current_pointer + size - current_max_capacity)/bytes_per_block;
+		printf("Number of new blocks %d\n",(int)number_new_blocks );
 		int i;
-		DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*number_new_blocks);
-		for(i=0; i<number_new_blocks; i++){
-			indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			if(indexes[i] < FIRST_VALID_BIT){
+		//unsigned int* indexes = (unsigned int*)malloc(sizeof(unsigned int)*number_new_blocks);
+int indice;
+
+		for(i=0; i< number_new_blocks; i++){
+
+			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+			if(indice < FIRST_VALID_BIT){
 				printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
 				return failed("Write2: Failed to find enough free data blocks.");
 			}
-			else set_bitmap_index(BITMAP_BLOCKS, indexes[i], BIT_OCCUPIED);
-		}
-		// ok, tem blocos suficientes para dados.
-		// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
-		int b ;
-		for (b=0; b < number_new_blocks; b++){
-			if(insert_data_block_index(f, f.inode->blocksFileSize + b, indexes[b]) <= 0) return FAILED;
+			else {
+
+if (set_bitmap_index(BITMAP_BLOCKS, indice, BIT_OCCUPIED) !=SUCCESS) return FAILED;
+
+if(insert_data_block_index(f, f.inode->blocksFileSize + i, indice) <= 0) return FAILED;
+}
 		}
 
+
+
 		f.inode->blocksFileSize += number_new_blocks;
+
 		current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
+	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
+
 	}
 
 	if (f.current_pointer + size <= current_max_capacity) {
@@ -1837,7 +1862,8 @@ int write2 (FILE2 handle, char *buffer, int size) {
 			cur_data_byte += write_length;
 		}
 	}
-
+	printf("Inode number: %d \n", (int)f.inode_index);
+	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
 	return SUCCESS;
 }
 // find inode, find data block that includess the current pointer
