@@ -934,13 +934,14 @@ int new_record2(T_RECORD* rec){
 					allocated = true;
 
 					 // ESCREVE UM BLOCO DE IND DUPLA com um unico ponteiro para o simples
-					write_block(bloco_2_indices,(BYTE*)(DWORD)bloco_1_indices,0,sizeof(DWORD));
+
+					write_block(bloco_2_indices,(BYTE*)&bloco_1_indices,0,sizeof(DWORD));
 
 					set_bitmap_index(BITMAP_BLOCKS, bloco_2_indices, BIT_OCCUPIED);
 					dirnode->doubleIndPtr = (DWORD)bloco_2_indices;
 
 					 // Agora o BLOCO IND SIMPLES do DUPLO recebe ponteiro para o novo bloco de entradas.
-					write_block(bloco_1_indices, (BYTE*)(DWORD)new_data_block,0,sizeof(DWORD));
+					write_block(bloco_1_indices, (BYTE*)&new_data_block,0,sizeof(DWORD));
 					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
 
 				} else if(map->single_pointer_to_block == INVALID) {
@@ -954,10 +955,10 @@ int new_record2(T_RECORD* rec){
 					dirnode->blocksFileSize += 1;
 					rt->total_entries++;
 					allocated = true;
-					write_block(bloco_1_indices,(BYTE*)(DWORD)new_data_block,0,sizeof(DWORD));
+					write_block(bloco_1_indices,(BYTE*)&new_data_block,0,sizeof(DWORD));
 					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
 
-					write_block(dirnode->doubleIndPtr,(BYTE*)(DWORD)bloco_1_indices,0,sizeof(DWORD));
+					write_block(dirnode->doubleIndPtr,(BYTE*)&bloco_1_indices,0,sizeof(DWORD));
 
 				} else if (map->single_pointer_to_block != INVALID) {
 
@@ -968,7 +969,7 @@ int new_record2(T_RECORD* rec){
 		 		 	dirnode->blocksFileSize += 1;
 					rt->total_entries++;
 					allocated = true;
-					write_block(map->single_pointer_to_block,(BYTE*)( (map->single_pointer_index % mounted->pointers_per_block)*sizeof(DWORD)),
+					write_block(map->single_pointer_to_block,(BYTE*)((map->single_pointer_index % mounted->pointers_per_block)*sizeof(DWORD)),
 							 map->sector_key*SECTOR_SIZE+map->sector_shift,sizeof(DWORD));
 					}
 				}
@@ -1455,13 +1456,13 @@ int delete2 (char *filename) {
 			inode->RefCounter--;
 		  if(inode->RefCounter == 0) {
 			 remove_file_content(inode);
-		}
+			}
 
 			return SUCCESS;
 		}
 
 		else {
-			remove_file_content(record->inodeNumber);
+			remove_file_content(inode);
 			delete_entry(filename);
 			return SUCCESS;
 		}
@@ -1509,7 +1510,7 @@ FILE2 open2 (char *filename) {
 			//printf("Adicionei arquivo na posicao: %d\n", i);
 			if(rec->TypeVal == TYPEVAL_LINK){
 
-				BYTE* buffer = alloc_sector(1);
+				BYTE* buffer = alloc_sector();
 				if(read_sector(mounted->mbr_data->initial_sector
 							   + (mounted->superblock->blockSize)*inode->dataPtr[0], buffer) != SUCCESS) return FAILED;
 				memcpy((void*)_filename, (void*)buffer, 51);
@@ -1840,7 +1841,7 @@ int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_bloc
 			// create single ind block to data block
 
 			// search data bitmap for free block
-			int index = next_bitmap_index(1, 0);
+			index = next_bitmap_index(1, 0);
 			// set occupied
 			if(set_bitmap_index(0, index, 1)!=SUCCESS){
 				return failed("Could not set index");
