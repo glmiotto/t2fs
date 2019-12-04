@@ -1587,7 +1587,7 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 DWORD read_length;
 	 DWORD cur_data_byte = 0;
 	 DWORD byte_shift = f->current_pointer % bytes_per_block;
-	
+	int total_read = 0;	
 
 	
 	 while (cur_data_byte < size && cur_data_byte < max_capacity) {
@@ -1604,12 +1604,13 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 	read_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, read_length);
 	
 	 	f->current_pointer += read_length;
+		total_read += read_length;
 	 	byte_shift = f->current_pointer % bytes_per_block;
 	 	cur_data_byte += read_length;
 	 }
 	
-	 printf("String resultante lida: \n %s", buffer);
-	 return SUCCESS;
+	 //printf("String resultante lida: \n %s\n\n\n", buffer);
+	 return total_read;
 }
 
 // map current_pointer (Nth byte) to a specific block and sector
@@ -1806,21 +1807,26 @@ int write2 (FILE2 handle, char *buffer, int size) {
  	// Capacidade maxima do arquivo agora.
  	DWORD current_max_capacity = f->inode->blocksFileSize * bytes_per_block;
 
- 	printf("Current max capac at %d\n",(int)current_max_capacity );
- 	printf("Cur pointer at %d\n",(int)f->current_pointer);
- 	printf("size to write %d\n",(int)size );
+ 	//printf("Current max capac at %d\n",(int)current_max_capacity );
+ 	//printf("Cur pointer at %d\n",(int)f->current_pointer);
+ 	//printf("size to write %d\n",(int)size );
  	DWORD cur_block_number;
  	DWORD cur_block_index;
  	DWORD write_length;
-
+ 	DWORD cur_data_byte = 0;
+int total_written =0;
  	DWORD byte_shift = f->current_pointer % bytes_per_block;
+	
+	//for(int i=0; i<size; i++){
+	//	printf("buf[%d]=%c\n",i,buffer[i]);
+	//}
 
  	if (f->current_pointer + size > current_max_capacity) {
  		// alloc more blocks + update inode
  		DWORD number_new_blocks = 1+(f->current_pointer + size - current_max_capacity)/bytes_per_block;
 
-		printf("Number of new blocks %d\n",(int)number_new_blocks );
-		printf("INode antes # blocos: %d\n", f->inode->blocksFileSize);
+		//printf("Number of new blocks %d\n",(int)number_new_blocks );
+		//printf("INode antes # blocos: %d\n", f->inode->blocksFileSize);
  		int i;
  		//unsigned int* indexes = (unsigned int*)malloc(sizeof(unsigned int)*number_new_blocks);
  int indice;
@@ -1829,7 +1835,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
  			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
  			if(indice < FIRST_VALID_BIT){
- 				printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
+ 				//printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
  				return failed("Write2: Failed to find enough free data blocks.");
  			}
  			else {
@@ -1840,7 +1846,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
  			}
 		}
 
-		printf("INode depois # blocos: %d\n", f->inode->blocksFileSize);
+		//printf("INode depois # blocos: %d\n", f->inode->blocksFileSize);
  		current_max_capacity = f->inode->blocksFileSize * bytes_per_block;
 
 
@@ -1849,33 +1855,49 @@ int write2 (FILE2 handle, char *buffer, int size) {
  	if (f->current_pointer + size <= current_max_capacity) {
 
  		// no need to allocate anything new.
- 	DWORD cur_data_byte = 0;
+
  		while (cur_data_byte < size) {
+		//printf("cur_data_byte> %d\n", cur_data_byte);
+		
 
  			cur_block_number = f->current_pointer / bytes_per_block;
  			cur_block_index = get_data_block_index(f, cur_block_number);
+
+
+//printf("cur_block_number> %d\n", cur_block_number);
+
  			if(cur_block_index == INVALID) return FAILED;
 
 
  			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
  				write_length = size - cur_data_byte;
  			else write_length = bytes_per_block - byte_shift;
-
+			
+			//printf("char -> %c\n", (BYTE*)&(buffer[cur_data_byte]));
+			//printf("WRITING BLOCK- cur data byte %d, byte_shift: %d, write length %d\n", cur_data_byte,byte_shift,write_length);
  			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
 			
-printf("WRITE LENGTH %d\n", write_length); 
+
+			
+//printf("WRITE LENGTH %d\n", write_length); 
+//printf("current pointer > %d\n",f->current_pointer);
  			f->current_pointer += write_length;
+
  			if(f->current_pointer >= f->inode->bytesFileSize) {
- 				f->inode->bytesFileSize += (f->current_pointer - f->inode->bytesFileSize);
+				//printf("CURRENT: %d\n", f->current_pointer);
+				//printf("FILESIZE: %d\n", f->inode->bytesFileSize); 				
+				f->inode->bytesFileSize += (f->current_pointer - f->inode->bytesFileSize);
  			}
+			if(update_inode(f->inode_index, *(f->inode)) != SUCCESS) return failed("fail");
 
  			byte_shift = f->current_pointer % bytes_per_block;
  			cur_data_byte += write_length;
+total_written += write_length;
  		}
  	}
 
- 	if(update_inode(f->inode_index, *(f->inode)) != SUCCESS) return failed("fail");
- 	return SUCCESS;
+ 	
+ 	return total_written;
  }
 
 // // find inode, find data block that includess the current pointer
