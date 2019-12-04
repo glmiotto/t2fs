@@ -1521,8 +1521,8 @@ int delete2 (char *filename) {
 		T_INODE* inode = alloc_inode(1);
 		if( access_inode(record->inodeNumber, inode) != SUCCESS) return FAILED ;
 
-		if(record->TypeVal == TYPEVAL_LINK){
-			remove_record(filename);
+		if(record->TypeVal == TYPEVAL_REGULAR){
+			delete_entry(filename);
 			inode->RefCounter--;
 		  if(inode->RefCounter == 0) {
 			 remove_file_content(inode);
