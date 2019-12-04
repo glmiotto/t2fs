@@ -24,7 +24,7 @@ boolean debugging = false;
 int failed(char* msg) {
 	//printf("%s\n", msg);
 	return FAILED;}
-void print(char* msg) {printf("");}
+void print(char* msg) {printf("%s\n", msg);}
 void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
 /* **************************************************************** */
@@ -274,7 +274,9 @@ int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 }
 
 void print_RECORD(T_RECORD* record){
-	if(record==NULL) {print("Record is nullptr."); return;}
+	if(record==NULL) {
+		//printf("Record is nullptr.");
+		return;}
 	printf("--------------\n");
 	printf("File name: %s\n", record->name);
 	printf("File type: %x\n", record->TypeVal);
@@ -555,7 +557,7 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 	}
 
 	if(closeBitmap2() != SUCCESS) {
-		print("------> WARNING: Could not save bitmap info to disk.");
+		//printf("------> WARNING: Could not save bitmap info to disk.");
 	}
 
 	return SUCCESS;
@@ -1117,7 +1119,7 @@ int set_file_open(T_INODE* file_inode){
 	T_FOPEN* fopen = mounted->root->open_files;
 
 	if (mounted->root->num_open_files >= MAX_FILES_OPEN){
-		print("Maximum number of open files reached.");
+		//printf("Maximum number of open files reached.");
 		return FAILED;
 	}
 	int i;
@@ -1142,7 +1144,7 @@ int set_file_open(T_INODE* file_inode){
 
 int set_file_close(FILE2 handle){
 	if(handle >= MAX_FILES_OPEN || handle < 0){
-		print("Handle out of bounds.");
+		//printf("Handle out of bounds.");
 		return FAILED;
 	}
 	if (!is_mounted())   return(failed("SetFileClose failed 1"));
@@ -1151,7 +1153,7 @@ int set_file_close(FILE2 handle){
 	T_FOPEN* fopen = mounted->root->open_files;
 
 	if(fopen[handle].inode == NULL) {
-		print("File handle does not correspond to an open file.");
+		//printf("File handle does not correspond to an open file.");
 		return -1;
 	}
 	else mounted->root->num_open_files--;
@@ -1501,7 +1503,7 @@ FILE2 open2 (char *filename) {
 	T_FOPEN* fopen = mounted->root->open_files;
 
 	if (mounted->root->num_open_files >= MAX_FILES_OPEN){
-		print("Maximum number of open files reached.");
+		//printf("Maximum number of open files reached.");
 		return FAILED;
 	}
 
@@ -2288,7 +2290,7 @@ int find_entry(char* filename, T_RECORD** record) {
 	for (i = 0; i < 2; i++) {
 		entry_block = rt->inode->dataPtr[i];
 		if(find_entry_in_block(entry_block, filename, *record) > NOT_FOUND){
-			print("Found entry successfully");
+			//printf("Found entry successfully");
 			return SUCCESS;
 		}
 	}
@@ -2298,7 +2300,7 @@ int find_entry(char* filename, T_RECORD** record) {
 	if(index_block > INVALID) {
 		// Valid index
 		if(find_indirect_entry(index_block, filename, *record) > NOT_FOUND){
-			print("Found entry successfully");
+			//printf("Found entry successfully");
 			return SUCCESS;
 		}
 	}
@@ -2321,7 +2323,7 @@ int find_entry(char* filename, T_RECORD** record) {
 				inner_index_block = (DWORD)buffer[i*DATA_PTR_SIZE_BYTES];
 
 				if(find_indirect_entry(inner_index_block, filename, *record) > NOT_FOUND){
-					print("Found entry successfully");
+					//printf("Found entry successfully");
 					return SUCCESS;
 				}
 			}
@@ -2361,7 +2363,7 @@ int delete_entry(char* filename) {
 	for (i = 0; i < 2; i++) {
 		entry_block = rt->inode->dataPtr[i];
 		if(delete_entry_in_block(entry_block, filename) > NOT_FOUND){
-			print("Deleted entry successfully");
+			//printf("Deleted entry successfully");
 			return SUCCESS;
 		}
 	}
@@ -2371,7 +2373,7 @@ int delete_entry(char* filename) {
 	if(index_block > INVALID) {
 		// Valid index
 		if(delete_indirect_entry(index_block, filename) > NOT_FOUND){
-			print("Deleted entry successfully");
+			//printf("Deleted entry successfully");
 			return SUCCESS;
 		}
 	}
@@ -2394,7 +2396,7 @@ int delete_entry(char* filename) {
 				inner_index_block = (DWORD)buffer[i*DATA_PTR_SIZE_BYTES];
 
 				if(delete_indirect_entry(inner_index_block, filename) > NOT_FOUND){
-					print("Deleted entry successfully");
+					//printf("Deleted entry successfully");
 					return SUCCESS;
 				}
 			}
