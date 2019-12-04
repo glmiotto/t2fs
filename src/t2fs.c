@@ -21,8 +21,10 @@ boolean t2fs_initialized = false;
 boolean debugging = false;
 //boolean writeMFD = true;
 // Debugging
-int failed(char* msg) {printf("%s\n", msg);return FAILED;}
-void print(char* msg) {printf("%s\n", msg);}
+int failed(char* msg) {
+	//printf("%s\n", msg);
+	return FAILED;}
+void print(char* msg) {printf("");}
 void* null(char* msg) {printf("%s\n", msg);return (void*)NULL;}
 
 /* **************************************************************** */
@@ -373,7 +375,7 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 		}
 	}
 
-	report_superblock(*sb, partition);
+	//report_superblock(*sb, partition);
 
 	save_superblock(*sb, partition);
 	return SUCCESS;
@@ -1557,47 +1559,47 @@ Função:	Função usada para realizar a leitura de uma certa quantidade
 int read2 (FILE2 handle, char *buffer, int size) {
 return -1;
 	// Validation
-	if (init() != SUCCESS) return failed("close2: failed to initialize");
-	if(!is_mounted()) return failed("No partition mounted.");
-	if(!is_root_loaded()) return failed("Directory must be opened.");
-	//f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
-	if(size <= 0) return failed("Invalid number of bytes.");
-	// TODO: verificar se pode numero negativo de bytes
-	// (ler os x bytes anteriores ao current pointer e atualizar o current)
-	T_FOPEN f = mounted->root->open_files[handle];
-	if(f.inode == NULL) return FAILED;
-
-	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
-	// Capacidade maxima do arquivo agora.
-	DWORD max_capacity = f.inode->blocksFileSize * bytes_per_block;
-
-	DWORD cur_block_number;
-	DWORD cur_block_index;
-	DWORD read_length;
-	DWORD cur_data_byte = 0;
-	DWORD byte_shift = f.current_pointer % bytes_per_block;
-
-
-	while (cur_data_byte < size && cur_data_byte < max_capacity) {
-
-		cur_block_number = f.current_pointer / bytes_per_block;
-		cur_block_index = get_data_block_index(f, cur_block_number);
-		if(cur_block_index == INVALID) return FAILED;
-
-
-		if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
-			read_length = size - cur_data_byte;
-		else read_length = bytes_per_block - byte_shift;
-
-		write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, read_length);
-
-		f.current_pointer += read_length;
-		byte_shift = f.current_pointer % bytes_per_block;
-		cur_data_byte += read_length;
-	}
-
-	printf("String resultante lida: \n %s", buffer);
-	return SUCCESS;
+	// if (init() != SUCCESS) return failed("close2: failed to initialize");
+	// if(!is_mounted()) return failed("No partition mounted.");
+	// if(!is_root_loaded()) return failed("Directory must be opened.");
+	// //f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
+	// if(size <= 0) return failed("Invalid number of bytes.");
+	// // TODO: verificar se pode numero negativo de bytes
+	// // (ler os x bytes anteriores ao current pointer e atualizar o current)
+	// T_FOPEN f = mounted->root->open_files[handle];
+	// if(f.inode == NULL) return FAILED;
+	//
+	// DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+	// // Capacidade maxima do arquivo agora.
+	// DWORD max_capacity = f.inode->blocksFileSize * bytes_per_block;
+	//
+	// DWORD cur_block_number;
+	// DWORD cur_block_index;
+	// DWORD read_length;
+	// DWORD cur_data_byte = 0;
+	// DWORD byte_shift = f.current_pointer % bytes_per_block;
+	//
+	//
+	// while (cur_data_byte < size && cur_data_byte < max_capacity) {
+	//
+	// 	cur_block_number = f.current_pointer / bytes_per_block;
+	// 	cur_block_index = get_data_block_index(f, cur_block_number);
+	// 	if(cur_block_index == INVALID) return FAILED;
+	//
+	//
+	// 	if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
+	// 		read_length = size - cur_data_byte;
+	// 	else read_length = bytes_per_block - byte_shift;
+	//
+	// 	write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, read_length);
+	//
+	// 	f.current_pointer += read_length;
+	// 	byte_shift = f.current_pointer % bytes_per_block;
+	// 	cur_data_byte += read_length;
+	// }
+	//
+	// printf("String resultante lida: \n %s", buffer);
+	// return SUCCESS;
 }
 
 // map current_pointer (Nth byte) to a specific block and sector
@@ -1710,45 +1712,45 @@ int write_data(T_INODE* inode, int position, char *buffer, int size) {
 int insert_data_block_index(T_FOPEN file, DWORD cur_block_number, DWORD index) {
 
 return -1;
-
-	if (index == INVALID) return FAILED;
-	if (cur_block_number < 2){
-
-		file.inode->dataPtr[cur_block_number] = index;
-
-
-	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
-
-		return SUCCESS;
-	}
-	else if (cur_block_number < mounted->pointers_per_block){
-		int indirection_index = file.inode->singleIndPtr;
-		if (indirection_index == INVALID) {
-			DWORD indirection = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			if(indirection < FIRST_VALID_BIT){
-				return failed("Write2: Failed to find enough free data blocks.");
-			}
-			else {
-				set_bitmap_index(BITMAP_BLOCKS, indirection, BIT_OCCUPIED);
-				file.inode->singleIndPtr = indirection;
-	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
-			}
-		}
-
-		indirection_index = file.inode->singleIndPtr;
-
-		int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
-		DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
-		DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
-
-		if(write_block(indirection_index, (BYTE*)&index,
-			sector_in_block*SECTOR_SIZE+shift_in_sector, DATA_PTR_SIZE_BYTES) != SUCCESS) return FAILED;
-
-		else {
-	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
-return SUCCESS;}
-	}
-	else return INVALID;
+//
+// 	if (index == INVALID) return FAILED;
+// 	if (cur_block_number < 2){
+//
+// 		file.inode->dataPtr[cur_block_number] = index;
+//
+//
+// 	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
+//
+// 		return SUCCESS;
+// 	}
+// 	else if (cur_block_number < mounted->pointers_per_block){
+// 		int indirection_index = file.inode->singleIndPtr;
+// 		if (indirection_index == INVALID) {
+// 			DWORD indirection = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+// 			if(indirection < FIRST_VALID_BIT){
+// 				return failed("Write2: Failed to find enough free data blocks.");
+// 			}
+// 			else {
+// 				set_bitmap_index(BITMAP_BLOCKS, indirection, BIT_OCCUPIED);
+// 				file.inode->singleIndPtr = indirection;
+// 	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
+// 			}
+// 		}
+//
+// 		indirection_index = file.inode->singleIndPtr;
+//
+// 		int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
+// 		DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
+// 		DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
+//
+// 		if(write_block(indirection_index, (BYTE*)&index,
+// 			sector_in_block*SECTOR_SIZE+shift_in_sector, DATA_PTR_SIZE_BYTES) != SUCCESS) return FAILED;
+//
+// 		else {
+// 	if(update_inode(file.inode_index, *(file.inode)) != SUCCESS) return failed("fail");
+// return SUCCESS;}
+// 	}
+// 	else return INVALID;
 }
 
 
@@ -1757,402 +1759,402 @@ int get_data_block_index(T_FOPEN file, DWORD cur_block_number) {
 
 return -1;
 
-	if (cur_block_number < 2)
-		return file.inode->dataPtr[cur_block_number];
-	else if (cur_block_number < mounted->pointers_per_block){
-
-		DWORD indirection_index = file.inode->singleIndPtr;
-		if (indirection_index == INVALID) return INVALID;
-		BYTE* sector_buffer = alloc_sector();
-
-		int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
-		DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
-		DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
-
-		DWORD offset = mounted->mbr_data->initial_sector + indirection_index * mounted->superblock->blockSize;
-
-		if (read_sector(offset + sector_in_block, sector_buffer) != SUCCESS) return FAILED;
-
-		return (DWORD)sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES];
-
-	}
-	else return INVALID;
+	// if (cur_block_number < 2)
+	// 	return file.inode->dataPtr[cur_block_number];
+	// else if (cur_block_number < mounted->pointers_per_block){
+	//
+	// 	DWORD indirection_index = file.inode->singleIndPtr;
+	// 	if (indirection_index == INVALID) return INVALID;
+	// 	BYTE* sector_buffer = alloc_sector();
+	//
+	// 	int pointers_per_sector = mounted->pointers_per_block / mounted->superblock->blockSize;
+	// 	DWORD sector_in_block = (cur_block_number-2)/pointers_per_sector;
+	// 	DWORD shift_in_sector = (cur_block_number-2)%pointers_per_sector;
+	//
+	// 	DWORD offset = mounted->mbr_data->initial_sector + indirection_index * mounted->superblock->blockSize;
+	//
+	// 	if (read_sector(offset + sector_in_block, sector_buffer) != SUCCESS) return FAILED;
+	//
+	// 	return (DWORD)sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES];
+	//
+	// }
+	// else return INVALID;
 }
 
 
 int write2 (FILE2 handle, char *buffer, int size) {
 return -1;
-	// Validation
-	if (init() != SUCCESS) return failed("close2: failed to initialize");
-	if(!is_mounted()) return failed("No partition mounted.");
-	if(!is_root_loaded()) return failed("Directory must be loaded.");
-	//if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
-	if(size <= 0) return failed("Invalid number of bytes.");
-
-	T_FOPEN f = mounted->root->open_files[handle];
-	if(f.inode == NULL) return FAILED;
-
-	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
-	// Capacidade maxima do arquivo agora.
-	DWORD current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
-
-	printf("Current max capac at %d\n",(int)current_max_capacity );
-	printf("Cur pointer at %d\n",(int)f.current_pointer);
-	printf("size to write %d\n",(int)size );
-	DWORD cur_block_number;
-	DWORD cur_block_index;
-	DWORD write_length;
-	DWORD cur_data_byte = 0;
-	DWORD byte_shift = f.current_pointer % bytes_per_block;
-
-	if (f.current_pointer + size > current_max_capacity) {
-		// alloc more blocks + update inode
-		DWORD number_new_blocks = 1+(f.current_pointer + size - current_max_capacity)/bytes_per_block;
-		printf("Number of new blocks %d\n",(int)number_new_blocks );
-		int i;
-		//unsigned int* indexes = (unsigned int*)malloc(sizeof(unsigned int)*number_new_blocks);
-int indice;
-
-		for(i=0; i< number_new_blocks; i++){
-
-			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			if(indice < FIRST_VALID_BIT){
-				printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
-				return failed("Write2: Failed to find enough free data blocks.");
-			}
-			else {
-
-if (set_bitmap_index(BITMAP_BLOCKS, indice, BIT_OCCUPIED) !=SUCCESS) return FAILED;
-
-if(insert_data_block_index(f, f.inode->blocksFileSize + i, indice) <= 0) return FAILED;
-}
-		}
-
-
-
-		f.inode->blocksFileSize += number_new_blocks;
-
-		current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
-	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
-
-	}
-
-	if (f.current_pointer + size <= current_max_capacity) {
-
-		// no need to allocate anything new.
-		while (cur_data_byte < size) {
-
-			cur_block_number = f.current_pointer / bytes_per_block;
-			cur_block_index = get_data_block_index(f, cur_block_number);
-			if(cur_block_index == INVALID) return FAILED;
-
-
-			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
-				write_length = size - cur_data_byte;
-			else write_length = bytes_per_block - byte_shift;
-
-			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
-
-			f.current_pointer += write_length;
-			if(f.current_pointer >= f.inode->bytesFileSize) {
-				f.inode->bytesFileSize = f.current_pointer+1;
-			}
-
-			byte_shift = f.current_pointer % bytes_per_block;
-			cur_data_byte += write_length;
-		}
-	}
-	printf("Inode number: %d \n", (int)f.inode_index);
-	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
-	return SUCCESS;
-}
-// find inode, find data block that includess the current pointer
-// if no data block allocated, alloc one or more according to bytes.
-// start writing bytes
-// if bytes exceed the block, jump to next block
-// OR allocate another block
-// therefore: calculate whether
-// current pointer + number of new bytes > free space available until end of file blocks.
-// if it is, check if you can allocate more blocks in disk before starting
-// write bytes, update pointer, update size in bytes and size in blocks.
-// if bytes ends at the very last byte,
-// the pointer points to a byte position that does not exist yet.
-// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
-
-// alternate behavior:
-// softlink: finds original file by name then do as above.
-// hardlink: get original file by inode then same.
-// update hardlink with size etc too.
-
-
-/*-----------------------------------------------------------------------------
-Função:	Função usada para realizar a escrita de uma certa quantidade
-		de bytes (size) de  um arquivo.
------------------------------------------------------------------------------*/
-int write3 (FILE2 handle, char *buffer, int size) {
-	return -1;
-	// Validation
+// 	//Validation
 // 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 // 	if(!is_mounted()) return failed("No partition mounted.");
-// 	if(!is_root_loaded()) return failed("Directory must be opened.");
-// 	// if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+// 	if(!is_root_loaded()) return failed("Directory must be loaded.");
+// 	//if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 // 	if(size <= 0) return failed("Invalid number of bytes.");
 //
-//
 // 	T_FOPEN f = mounted->root->open_files[handle];
-// 	T_INODE* file_inode;
+// 	if(f.inode == NULL) return FAILED;
 //
-//
-// 	printf("Writing 0\n");
-//
-// 	if(f.inode==NULL){}
-//
-// 	if(writeMFD){
-// 		file_inode = mounted->root->inode;
-// 	}
-// 	// checking if handle is valid
-// 	else if(f.inode==NULL){
-// 		return failed("File must be opened.");
-// 	}
-// 	else{
-// 		file_inode = f.inode;
-// 	}
-//
-//
-// 	//DWORD offset;
-// 	//BYTE* sector_buffer = alloc_sector();
-//
-// // Vou assumir so caso normal por enquanto
-// 	//write:
-// 	// openfilehandle and number of bytes.
-// 	// map current pointer to block and sector
 // 	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
-//
 // 	// Capacidade maxima do arquivo agora.
-// 	// DWORD max_bytes_currently = f.inode->blocksFileSize * bytes_per_block;
-// 	DWORD max_bytes_currently = file_inode->blocksFileSize * bytes_per_block;
+// 	DWORD current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
 //
-// 	// Qtos bytes pode expandir ainda sem alocar nada novo.
-// 	// DWORD max_bytes_left = max_bytes_currently - f.inode->bytesFileSize;
-// 	DWORD max_bytes_left = max_bytes_currently - file_inode->bytesFileSize;
+// 	printf("Current max capac at %d\n",(int)current_max_capacity );
+// 	printf("Cur pointer at %d\n",(int)f.current_pointer);
+// 	printf("size to write %d\n",(int)size );
+// 	DWORD cur_block_number;
+// 	DWORD cur_block_index;
+// 	DWORD write_length;
+// 	DWORD cur_data_byte = 0;
+// 	DWORD byte_shift = f.current_pointer % bytes_per_block;
 //
+// 	if (f.current_pointer + size > current_max_capacity) {
+// 		// alloc more blocks + update inode
+// 		DWORD number_new_blocks = 1+(f.current_pointer + size - current_max_capacity)/bytes_per_block;
+// 		printf("Number of new blocks %d\n",(int)number_new_blocks );
+// 		int i;
+// 		//unsigned int* indexes = (unsigned int*)malloc(sizeof(unsigned int)*number_new_blocks);
+// int indice;
 //
-// 	// calculando quanto expandir se porventura necessario
-// 	// int extra_size = f.current_pointer + size - f.inode->bytesFileSize;
-// 	int extra_size;
-// 	if(!writeMFD){
-// 		extra_size = f.current_pointer + size - file_inode->bytesFileSize;
-// 	}
-// 	else{
-// 		extra_size = size;
-// 	}
+// 		for(i=0; i< number_new_blocks; i++){
 //
-// 	// printf("blocksize =%d\n", mounted->superblock->blockSize);
-// 	// printf("bytes/block =%d\n", bytes_per_block);
-// 	// printf("max_bytes_currently =%d\n", max_bytes_currently);
-// 	// printf("max_bytes_left =%d\n", max_bytes_left);
-// 	// printf("extra_size =%d\n", extra_size);
-//
-// 	if( extra_size > 0) {
-// 		// vai ter x bytes novos para escrever alem do size atual do arquivo.
-//
-// 		if( max_bytes_left < extra_size) {
-//
-// 			// vai ter que alocar mais blocos!!
-// 			// checar se bytes_per_block é zero?
-// 			DWORD num_new_blocks = 1 + (extra_size - max_bytes_left) / bytes_per_block;
-// 			int i;
-//
-// 			DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*num_new_blocks);
-// 			for(i=0; i<num_new_blocks; i++){
-//
-//
-// 				indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-//
-//
-// 				if(indexes[i] < FIRST_VALID_BIT){
-// 					printf("Needs %u new data blocks, but partition only has %u free.\n",num_new_blocks,i);
-// 					return failed("Write2: Failed to find enough free data blocks.");
-// 				}
-//
-// 			}
-// 			printf("Writing 33\n");
-//
-// 			// ok, tem blocos suficientes para dados.
-// 			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
-// 			// int future_size_blocks = file_inode->blocksFileSize + num_new_blocks;
-// 			printf("Writing 4\n");
-//
-// 			allocate_new_indexes(file_inode, indexes, num_new_blocks);
-//
-// 			if(writeMFD){
-// 				// write_data(file_inode, file_inode->blocksFileSize, buffer, size);
-// 				for(int i=0; i<num_new_blocks;i++) {
-// 					printf("Escrevendo registro\n");
-// 					write_block(indexes[i], (BYTE*)buffer, file_inode->bytesFileSize, size);
-// 				}
+// 			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+// 			if(indice < FIRST_VALID_BIT){
+// 				printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
+// 				return failed("Write2: Failed to find enough free data blocks.");
 // 			}
 // 			else {
-// 				printf("Escrevendo arquivo\n");
-// 				write_data(file_inode, f.current_pointer, buffer, size);
-// 				f.current_pointer = f.current_pointer + size + 1;
 //
+// if (set_bitmap_index(BITMAP_BLOCKS, indice, BIT_OCCUPIED) !=SUCCESS) return FAILED;
+//
+// if(insert_data_block_index(f, f.inode->blocksFileSize + i, indice) <= 0) return FAILED;
+// }
+// 		}
+//
+//
+//
+// 		f.inode->blocksFileSize += number_new_blocks;
+//
+// 		current_max_capacity = f.inode->blocksFileSize * bytes_per_block;
+// 	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
+//
+// 	}
+//
+// 	if (f.current_pointer + size <= current_max_capacity) {
+//
+// 		// no need to allocate anything new.
+// 		while (cur_data_byte < size) {
+//
+// 			cur_block_number = f.current_pointer / bytes_per_block;
+// 			cur_block_index = get_data_block_index(f, cur_block_number);
+// 			if(cur_block_index == INVALID) return FAILED;
+//
+//
+// 			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
+// 				write_length = size - cur_data_byte;
+// 			else write_length = bytes_per_block - byte_shift;
+//
+// 			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
+//
+// 			f.current_pointer += write_length;
+// 			if(f.current_pointer >= f.inode->bytesFileSize) {
+// 				f.inode->bytesFileSize = f.current_pointer+1;
 // 			}
 //
-// 				// map to pointers etc
+// 			byte_shift = f.current_pointer % bytes_per_block;
+// 			cur_data_byte += write_length;
+// 		}
+// 	}
+// 	printf("Inode number: %d \n", (int)f.inode_index);
+// 	if(update_inode(f.inode_index, *(f.inode)) != SUCCESS) return failed("fail");
+// 	return SUCCESS;
+// }
+// // find inode, find data block that includess the current pointer
+// // if no data block allocated, alloc one or more according to bytes.
+// // start writing bytes
+// // if bytes exceed the block, jump to next block
+// // OR allocate another block
+// // therefore: calculate whether
+// // current pointer + number of new bytes > free space available until end of file blocks.
+// // if it is, check if you can allocate more blocks in disk before starting
+// // write bytes, update pointer, update size in bytes and size in blocks.
+// // if bytes ends at the very last byte,
+// // the pointer points to a byte position that does not exist yet.
+// // therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
 //
-// 			// se arq tinha 0 blocks, os primeiros dois novos sao sem overhead (dataPtr 0 e 1)
-// 			// a partir do 3 bloco do arquivo, precisa um bloco de indices.
-// 			// cada ponteiro nesse bloco aponta para um dos blocos de dados
-// 			// a partir do bloco Y , precisa um bloco de indices (double) e outros Z blocos de indices (single)
+// // alternate behavior:
+// // softlink: finds original file by name then do as above.
+// // hardlink: get original file by inode then same.
+// // update hardlink with size etc too.
 //
+//
+// /*-----------------------------------------------------------------------------
+// Função:	Função usada para realizar a escrita de uma certa quantidade
+// 		de bytes (size) de  um arquivo.
+// -----------------------------------------------------------------------------*/
+// int write3 (FILE2 handle, char *buffer, int size) {
+// 	return -1;
+// 	// Validation
+// // 	if (init() != SUCCESS) return failed("close2: failed to initialize");
+// // 	if(!is_mounted()) return failed("No partition mounted.");
+// // 	if(!is_root_loaded()) return failed("Directory must be opened.");
+// // 	// if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+// // 	if(size <= 0) return failed("Invalid number of bytes.");
+// //
+// //
+// // 	T_FOPEN f = mounted->root->open_files[handle];
+// // 	T_INODE* file_inode;
+// //
+// //
+// // 	printf("Writing 0\n");
+// //
+// // 	if(f.inode==NULL){}
+// //
+// // 	if(writeMFD){
+// // 		file_inode = mounted->root->inode;
+// // 	}
+// // 	// checking if handle is valid
+// // 	else if(f.inode==NULL){
+// // 		return failed("File must be opened.");
+// // 	}
+// // 	else{
+// // 		file_inode = f.inode;
+// // 	}
+// //
+// //
+// // 	//DWORD offset;
+// // 	//BYTE* sector_buffer = alloc_sector();
+// //
+// // // Vou assumir so caso normal por enquanto
+// // 	//write:
+// // 	// openfilehandle and number of bytes.
+// // 	// map current pointer to block and sector
+// // 	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
+// //
+// // 	// Capacidade maxima do arquivo agora.
+// // 	// DWORD max_bytes_currently = f.inode->blocksFileSize * bytes_per_block;
+// // 	DWORD max_bytes_currently = file_inode->blocksFileSize * bytes_per_block;
+// //
+// // 	// Qtos bytes pode expandir ainda sem alocar nada novo.
+// // 	// DWORD max_bytes_left = max_bytes_currently - f.inode->bytesFileSize;
+// // 	DWORD max_bytes_left = max_bytes_currently - file_inode->bytesFileSize;
+// //
+// //
+// // 	// calculando quanto expandir se porventura necessario
+// // 	// int extra_size = f.current_pointer + size - f.inode->bytesFileSize;
+// // 	int extra_size;
+// // 	if(!writeMFD){
+// // 		extra_size = f.current_pointer + size - file_inode->bytesFileSize;
+// // 	}
+// // 	else{
+// // 		extra_size = size;
+// // 	}
+// //
+// // 	// printf("blocksize =%d\n", mounted->superblock->blockSize);
+// // 	// printf("bytes/block =%d\n", bytes_per_block);
+// // 	// printf("max_bytes_currently =%d\n", max_bytes_currently);
+// // 	// printf("max_bytes_left =%d\n", max_bytes_left);
+// // 	// printf("extra_size =%d\n", extra_size);
+// //
+// // 	if( extra_size > 0) {
+// // 		// vai ter x bytes novos para escrever alem do size atual do arquivo.
+// //
+// // 		if( max_bytes_left < extra_size) {
+// //
+// // 			// vai ter que alocar mais blocos!!
+// // 			// checar se bytes_per_block é zero?
+// // 			DWORD num_new_blocks = 1 + (extra_size - max_bytes_left) / bytes_per_block;
+// // 			int i;
+// //
+// // 			DWORD* indexes = (DWORD*)malloc(sizeof(DWORD)*num_new_blocks);
+// // 			for(i=0; i<num_new_blocks; i++){
+// //
+// //
+// // 				indexes[i] = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
+// //
+// //
+// // 				if(indexes[i] < FIRST_VALID_BIT){
+// // 					printf("Needs %u new data blocks, but partition only has %u free.\n",num_new_blocks,i);
+// // 					return failed("Write2: Failed to find enough free data blocks.");
+// // 				}
+// //
+// // 			}
+// // 			printf("Writing 33\n");
+// //
+// // 			// ok, tem blocos suficientes para dados.
+// // 			// mas e se agora mudou de ponteiro ou nivel de indirecao no inode?
+// // 			// int future_size_blocks = file_inode->blocksFileSize + num_new_blocks;
+// // 			printf("Writing 4\n");
+// //
+// // 			allocate_new_indexes(file_inode, indexes, num_new_blocks);
+// //
+// // 			if(writeMFD){
+// // 				// write_data(file_inode, file_inode->blocksFileSize, buffer, size);
+// // 				for(int i=0; i<num_new_blocks;i++) {
+// // 					printf("Escrevendo registro\n");
+// // 					write_block(indexes[i], (BYTE*)buffer, file_inode->bytesFileSize, size);
+// // 				}
+// // 			}
+// // 			else {
+// // 				printf("Escrevendo arquivo\n");
+// // 				write_data(file_inode, f.current_pointer, buffer, size);
+// // 				f.current_pointer = f.current_pointer + size + 1;
+// //
+// // 			}
+// //
+// // 				// map to pointers etc
+// //
+// // 			// se arq tinha 0 blocks, os primeiros dois novos sao sem overhead (dataPtr 0 e 1)
+// // 			// a partir do 3 bloco do arquivo, precisa um bloco de indices.
+// // 			// cada ponteiro nesse bloco aponta para um dos blocos de dados
+// // 			// a partir do bloco Y , precisa um bloco de indices (double) e outros Z blocos de indices (single)
+// //
+// // 		}
+// // 	}
+// //
+// // 	// find inode, find data block that includess the current pointer
+// // 	// if no data block allocated, alloc one or more according to bytes.
+// // 	// start writing bytes
+// // 	// if bytes exceed the block, jump to next block
+// // 	// OR allocate another block
+// // 	// therefore: calculate whether
+// // 	// current pointer + number of new bytes > free space available until end of file blocks.
+// // 	// if it is, check if you can allocate more blocks in disk before starting
+// // 	// write bytes, update pointer, update size in bytes and size in blocks.
+// // 	// if bytes ends at the very last byte,
+// // 	// the pointer points to a byte position that does not exist yet.
+// // 	// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
+// //
+// // 	// alternate behavior:
+// // 	// softlink: finds original file by name then do as above.
+// // 	// hardlink: get original file by inode then same.
+// // 	// update hardlink with size etc too.
+// //
+// //
+// // 	return SUCCESS;
+// 	// return -1;
+// }
+//
+// int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks){
+//
+// 	// maximum number of pointers per index_block
+// 	int pointers_per_block = (mounted->superblock->blockSize * SECTOR_SIZE) / sizeof(DWORD*);
+//
+// 	// maximum number of pointers per inode dataPtr+singleIndPtr+doubleIndPtr
+// 	int maximum_indexes = 2 + pointers_per_block + pointers_per_block*pointers_per_block;
+//
+// 	int new_num_blocks = sizeof(indexes);
+//
+// 	// current number of blocks in a file
+// 	int current_blocks = file_inode->blocksFileSize;
+// 	// number of blocks that will be in block after allocate_new_indexes
+// 	int future_blocks = file_inode->blocksFileSize + new_num_blocks;
+// 	if(future_blocks>maximum_indexes)
+// 		return failed("Allocate Indexes: Inode cannot allocate enough indexes for this buffer.");
+//
+// 	int offset=0;
+// 	int written_blocks=0;
+//
+// 	// allocate at dataPtr, 2 maximum indexes
+// 	// int end = max(new_num_blocks, 2);
+// 	// int end = new_num_blocks;
+// 	if(future_blocks <= 2){
+// 		for(int i=current_blocks; i<new_num_blocks; i++){
+// 			// save value of indexes to dataPtr
+// 			printf("allocating block %d\n", i);
+//
+// 			file_inode->dataPtr[i] = indexes[written_blocks];
+//
+// 			written_blocks++;
 // 		}
 // 	}
 //
-// 	// find inode, find data block that includess the current pointer
-// 	// if no data block allocated, alloc one or more according to bytes.
-// 	// start writing bytes
-// 	// if bytes exceed the block, jump to next block
-// 	// OR allocate another block
-// 	// therefore: calculate whether
-// 	// current pointer + number of new bytes > free space available until end of file blocks.
-// 	// if it is, check if you can allocate more blocks in disk before starting
-// 	// write bytes, update pointer, update size in bytes and size in blocks.
-// 	// if bytes ends at the very last byte,
-// 	// the pointer points to a byte position that does not exist yet.
-// 	// therefore: always check whether current pointer <= the "size in bytes" in the inode of file.
+// 	// allocate at singleIndPtr, from 2 to 2+pointers_per_block maximum indexes
+// 	offset  = current_blocks - 2;
+// 	// end = new_num_blocks - written_blocks;
 //
-// 	// alternate behavior:
-// 	// softlink: finds original file by name then do as above.
-// 	// hardlink: get original file by inode then same.
-// 	// update hardlink with size etc too.
+// 	// end = max(end, pointers_per_block);
+// 	if(offset>0 && future_blocks <= pointers_per_block+2){
+// 		// index block has not been initialized yet
+// 		int index;
+// 		// if(file_inode->singleIndPtr==NULL){
+// 		if(file_inode->singleIndPtr==0){
+// 			// create single ind block to data block
+//
+// 			// search data bitmap for free block
+// 			index = next_bitmap_index(1, 0);
+// 			// set occupied
+// 			if(set_bitmap_index(0, index, 1)!=SUCCESS){
+// 				return failed("Could not set index");
+// 			}
+//
+// 			file_inode->singleIndPtr = index;
+// 		}
+// 		else {
+// 			index = file_inode->singleIndPtr;
+// 		}
 //
 //
+// 		int buffer_size = num_new_blocks - written_blocks;
+//
+// 		// write indexes to indPtr
+// 		// write_block(index, (char*)indexes, indexes[written_blocks], buffer_size);
+// 		write_block(index, (BYTE*)indexes, written_blocks, buffer_size);
+//
+// 	}
+//
+// 	// allocate at doubleIndPts, from 2+pointers_per_block to maximum_indexes
+// 	// offset = current_blocks - (2+pointers_per_block);
+// 	// end = new_num_blocks - written_blocks;
+// 	// if(offset>0 && future_blocks <= maximum_indexes){
+//
+// 	// 	if(file_inode->doubleIndPtr==NULL){
+// 	// 		// create ind block to ind block
+// 	// 	}
+//
+// 	// 	for(int i=offset; i<end; i++){
+// 	// 		int double_to_single = offset % pointers_per_block;
+//
+// 	// 		// read index block pointed by first
+// 	// 		BYTE* buffer = alloc_sector();
+// 	// 		read_sector(file_inode->doubleIndPtr, buffer);
+// 	// 		// get value of single indirect
+// 	// 		if((DWORD)buffer[0]==NULL)
+// 	// 		{
+// 	// 			// create ind block to data block
+// 	// 		}
+//
+// 	// 		end = new_num_blocks - written_blocks;
+// 	// 		for(int j=0; j<end; end++){
+// 	// 			printf("Write index to index block\n");
+// 	// 		}
+// 	// 	}
+// 	// }
 // 	return SUCCESS;
-	// return -1;
-}
-
-int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks){
-
-	// maximum number of pointers per index_block
-	int pointers_per_block = (mounted->superblock->blockSize * SECTOR_SIZE) / sizeof(DWORD*);
-
-	// maximum number of pointers per inode dataPtr+singleIndPtr+doubleIndPtr
-	int maximum_indexes = 2 + pointers_per_block + pointers_per_block*pointers_per_block;
-
-	int new_num_blocks = sizeof(indexes);
-
-	// current number of blocks in a file
-	int current_blocks = file_inode->blocksFileSize;
-	// number of blocks that will be in block after allocate_new_indexes
-	int future_blocks = file_inode->blocksFileSize + new_num_blocks;
-	if(future_blocks>maximum_indexes)
-		return failed("Allocate Indexes: Inode cannot allocate enough indexes for this buffer.");
-
-	int offset=0;
-	int written_blocks=0;
-
-	// allocate at dataPtr, 2 maximum indexes
-	// int end = max(new_num_blocks, 2);
-	// int end = new_num_blocks;
-	if(future_blocks <= 2){
-		for(int i=current_blocks; i<new_num_blocks; i++){
-			// save value of indexes to dataPtr
-			printf("allocating block %d\n", i);
-
-			file_inode->dataPtr[i] = indexes[written_blocks];
-
-			written_blocks++;
-		}
-	}
-
-	// allocate at singleIndPtr, from 2 to 2+pointers_per_block maximum indexes
-	offset  = current_blocks - 2;
-	// end = new_num_blocks - written_blocks;
-
-	// end = max(end, pointers_per_block);
-	if(offset>0 && future_blocks <= pointers_per_block+2){
-		// index block has not been initialized yet
-		int index;
-		// if(file_inode->singleIndPtr==NULL){
-		if(file_inode->singleIndPtr==0){
-			// create single ind block to data block
-
-			// search data bitmap for free block
-			index = next_bitmap_index(1, 0);
-			// set occupied
-			if(set_bitmap_index(0, index, 1)!=SUCCESS){
-				return failed("Could not set index");
-			}
-
-			file_inode->singleIndPtr = index;
-		}
-		else {
-			index = file_inode->singleIndPtr;
-		}
-
-
-		int buffer_size = num_new_blocks - written_blocks;
-
-		// write indexes to indPtr
-		// write_block(index, (char*)indexes, indexes[written_blocks], buffer_size);
-		write_block(index, (BYTE*)indexes, written_blocks, buffer_size);
-
-	}
-
-	// allocate at doubleIndPts, from 2+pointers_per_block to maximum_indexes
-	// offset = current_blocks - (2+pointers_per_block);
-	// end = new_num_blocks - written_blocks;
-	// if(offset>0 && future_blocks <= maximum_indexes){
-
-	// 	if(file_inode->doubleIndPtr==NULL){
-	// 		// create ind block to ind block
-	// 	}
-
-	// 	for(int i=offset; i<end; i++){
-	// 		int double_to_single = offset % pointers_per_block;
-
-	// 		// read index block pointed by first
-	// 		BYTE* buffer = alloc_sector();
-	// 		read_sector(file_inode->doubleIndPtr, buffer);
-	// 		// get value of single indirect
-	// 		if((DWORD)buffer[0]==NULL)
-	// 		{
-	// 			// create ind block to data block
-	// 		}
-
-	// 		end = new_num_blocks - written_blocks;
-	// 		for(int j=0; j<end; end++){
-	// 			printf("Write index to index block\n");
-	// 		}
-	// 	}
-	// }
-	return SUCCESS;
-}
-
-/*-----------------------------------------------------------------------------
-Função:	Função que abre um diretório existente no disco.
------------------------------------------------------------------------------*/
-int opendir2 (void) {
-	if (init() != SUCCESS) return(failed("OpenDir: failed to initialize"));
-
-	if(!is_mounted()) return(failed("No partition mounted yet."));
-
-	//printf("OpD 1\n");
-
-	mounted->root->open = true;
-	mounted->root->entry_index = 0;
-
-  //printf("OpDir final\n");
-
-	// Caso contrário usar o valor na variável global, acessar o seu root,
-	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
-	// que guarde globalmente tudo que precisamos de um diretório.
-	// Se um diretório ja aberto, dizer que já tem aberto/mandar fechar o atual
-	// (embora seja o mesmo).
-	// Setar atual entrada de leitura para 0 para o readdir.
-	// mounted->root->current_entry = 0;
-	return SUCCESS;
+// }
+//
+// /*-----------------------------------------------------------------------------
+// Função:	Função que abre um diretório existente no disco.
+// -----------------------------------------------------------------------------*/
+// int opendir2 (void) {
+// 	if (init() != SUCCESS) return(failed("OpenDir: failed to initialize"));
+//
+// 	if(!is_mounted()) return(failed("No partition mounted yet."));
+//
+// 	//printf("OpD 1\n");
+//
+// 	mounted->root->open = true;
+// 	mounted->root->entry_index = 0;
+//
+//   //printf("OpDir final\n");
+//
+// 	// Caso contrário usar o valor na variável global, acessar o seu root,
+// 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
+// 	// que guarde globalmente tudo que precisamos de um diretório.
+// 	// Se um diretório ja aberto, dizer que já tem aberto/mandar fechar o atual
+// 	// (embora seja o mesmo).
+// 	// Setar atual entrada de leitura para 0 para o readdir.
+// 	// mounted->root->current_entry = 0;
+// 	return SUCCESS;
 }
 
 int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry){
