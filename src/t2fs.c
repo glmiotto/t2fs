@@ -375,9 +375,9 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 		}
 	}
 
-	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-	report_superblock(*sb, partition);
-	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	//print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	//report_superblock(*sb, partition);
+	//print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 
 	save_superblock(*sb, partition);
 	return SUCCESS;
@@ -823,7 +823,7 @@ int new_record2(T_RECORD* rec){
 					dirnode->bytesFileSize += dentry_size;
 					dirnode->blocksFileSize += 1;
 					dirnode->dataPtr[current_blocks] = new_data_block;
-					printf("\n========================== %d ========================\n", current_blocks);
+					//printf("\n========================== %d ========================\n", current_blocks);
 					rt->total_entries++;
 
 					if (update_inode(0, *dirnode)) {
@@ -1211,14 +1211,14 @@ int init_open_files(){
 	// if(!is_mounted()) return FAILED;
 	// if(!is_root_loaded()) return(failed("Root not loaded prev. to init fopen"));
 
-	printf("Openfiles 0\n");
+	//printf("Openfiles 0\n");
 
 	// if(mounted->root->open_files == NULL){
 	// 	mounted->root->open_files =
 	// 		(T_FOPEN*) malloc(MAX_FILES_OPEN*sizeof(T_FOPEN));
 	// }
 
-	printf("Openfiles 1\n");
+	//printf("Openfiles 1\n");
 	// T_FOPEN* fopen = mounted->root->open_files;
 	int i;
 	for(i=0; i < MAX_FILES_OPEN; i++){
@@ -1226,7 +1226,7 @@ int init_open_files(){
 		mounted->root->open_files[i].current_pointer = 0;
 		mounted->root->open_files[i].handle = i; // TODO: ou entao botar um handle invalido ate ser usado
 	}
-	printf("Openfiles 2\n");
+	//printf("Openfiles 2\n");
 
 	return SUCCESS;
 }
@@ -1970,12 +1970,12 @@ int opendir2 (void) {
 
 	if(!is_mounted()) return(failed("No partition mounted yet."));
 
-	printf("OpD 1\n");
+	//printf("OpD 1\n");
 
 	mounted->root->open = true;
 	mounted->root->entry_index = 0;
 
-  printf("OpDir final\n");
+  //printf("OpDir final\n");
 
 	// Caso contrário usar o valor na variável global, acessar o seu root,
 	// e guardar seu ponteiro ou inicializar algum estrutura tipo "T_DIR"
@@ -2350,7 +2350,7 @@ int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE** buffer, MAP* 
 	DWORD entry_block, index_block, offset;
 	free(*buffer); *buffer = alloc_sector();
 
-	printf("-------------------- bk %d ------------------\n", block_key);
+	//printf("-------------------- bk %d ------------------\n", block_key);
 	// DIRECT
 	if(block_key < 2){
 		entry_block = rt->inode->dataPtr[block_key];
