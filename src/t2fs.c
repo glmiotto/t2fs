@@ -1772,7 +1772,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
 	if(!is_root_loaded()) return failed("Directory must be loaded.");
-	if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
+	//if(!is_valid_handle(handle)) return failed("Invalid Fopen handle.");
 	if(size <= 0) return failed("Invalid number of bytes.");
 
 	T_FOPEN f = mounted->root->open_files[handle];
