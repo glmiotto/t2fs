@@ -1580,7 +1580,7 @@ int read2 (FILE2 handle, char *buffer, int size) {
 
 	 DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
 	 // Capacidade maxima do arquivo agora.
-	 DWORD max_capacity = f->inode->blocksFileSize * bytes_per_block;
+	 DWORD file_size_bytes = f->inode->bytesFileSize;
 
 	 DWORD cur_block_number;
 	 DWORD cur_block_index;
@@ -1589,7 +1589,14 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 DWORD byte_shift = f->current_pointer % bytes_per_block;
 	 int total_read = 0;
 
-	 while (cur_data_byte < size && cur_data_byte < max_capacity) {
+	if (f->current_pointer + size > file_size_bytes){
+		size = file_size_bytes - f->current_pointer;
+	}
+	if (size == 0) return 0;
+	
+
+	printf("fcurr %d - fsizeb %d\n", f->current_pointer, file_size_bytes);
+	 while (cur_data_byte < size && f->current_pointer < file_size_bytes) {
 
 	 	cur_block_number = f->current_pointer / bytes_per_block;
 	 	cur_block_index = get_data_block_index(f, cur_block_number);
@@ -1601,6 +1608,8 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 		read_length = size - cur_data_byte;
 	 	else read_length = bytes_per_block - byte_shift;
 
+		if (f->current_pointer + read_length > file_size_bytes) read_length = file_size_bytes - f->current_pointer;
+
 	 	read_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, read_length);
 
 	 	f->current_pointer += read_length;
@@ -1608,7 +1617,6 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 	byte_shift = f->current_pointer % bytes_per_block;
 	 	cur_data_byte += read_length;
 	 }
-
 	 //printf("String resultante lida: \n %s\n\n\n", buffer);
 	 return total_read;
 }
@@ -1880,26 +1888,25 @@ int write2 (FILE2 handle, char *buffer, int size) {
 			printf("-2--char -> %c\n", (buffer[cur_data_byte]));
 			printf("-3--WRITING BLOCK- cur data byte %d, byte_shift: %d, write length %d\n", cur_data_byte,byte_shift,write_length);
  			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
-
-
-
 //printf("WRITE LENGTH %d\n", write_length);
 //printf("current pointer > %d\n",f->current_pointer);
  			f->current_pointer += write_length;
 
- 			if(f->current_pointer >= f->inode->bytesFileSize) {
-				//printf("CURRENT: %d\n", f->current_pointer);
-				//printf("FILESIZE: %d\n", f->inode->bytesFileSize);
-				f->inode->bytesFileSize += (f->current_pointer - f->inode->bytesFileSize);
- 			}
-			if(update_inode(f->inode_index, *(f->inode)) != SUCCESS) return failed("fail");
-
  			byte_shift = f->current_pointer % bytes_per_block;
  			cur_data_byte += write_length;
-total_written += write_length;
+			total_written += write_length;
  		}
- 	}
+		printf("1CURRENT: %d\n", f->current_pointer);
+		printf("1FILESIZE: %d\n", f->inode->bytesFileSize);
+		if(f->current_pointer >= f->inode->bytesFileSize) {
+			printf("entrou\n");
+			f->inode->bytesFileSize += (f->current_pointer - f->inode->bytesFileSize);
+			if(update_inode(f->inode_index, *(f->inode)) != SUCCESS) return failed("fail");
+			printf("2CURRENT: %d\n", f->current_pointer);
+			printf("2FILESIZE: %d\n", f->inode->bytesFileSize);
 
+		}
+ 	}
 	for(int i=0; i<size; i++){
 			printf("buf[%d]=%c\n",i,buffer[i]);
 		}
