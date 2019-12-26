@@ -1587,14 +1587,14 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 DWORD read_length;
 	 DWORD cur_data_byte = 0;
 	 DWORD byte_shift = f->current_pointer % bytes_per_block;
-	int total_read = 0;
-
+	 int total_read = 0;
 
 	 while (cur_data_byte < size && cur_data_byte < max_capacity) {
 
 	 	cur_block_number = f->current_pointer / bytes_per_block;
 	 	cur_block_index = get_data_block_index(f, cur_block_number);
-	 	if(cur_block_index == INVALID) return FAILED;
+		printf("=-=cur_block_index = %d\n", cur_block_index);
+	 	if(cur_block_index <= 0) return FAILED;
 
 
 	 	if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
@@ -1677,8 +1677,10 @@ int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int dat
 	int max_sector = mounted->mbr_data->initial_sector + (mounted->mbr_data->final_sector - mounted->mbr_data->initial_sector);
 
 	while(sector < max_sector && current_data_byte < data_size){
+		printf("[READBLOCK] Sector = %d\n", sector);
+
 		if(read_sector(sector, sector_buffer)) {
-			//printf("error at writeblock\n");
+			printf("error at writeblock\n");
 			return -1;
 		}
 
@@ -1691,6 +1693,7 @@ int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int dat
 		memcpy(&(data_buffer[current_data_byte]), &(sector_buffer[sector_byte]), bytes_to_copy);
 		current_data_byte += bytes_to_copy;
 		sector_byte = 0;
+		sector++;
 	}
 	return SUCCESS;
 }
@@ -1723,7 +1726,7 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 
 
  	if (cur_block_number < 2){
-		
+
 		//printf("INdice achado para o bloco dew dados %d\n", index);
  		file->inode->dataPtr[cur_block_number] = index;
 		file->inode->blocksFileSize ++;
@@ -1843,11 +1846,11 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
  				if (set_bitmap_index(BITMAP_BLOCKS, indice, BIT_OCCUPIED) !=SUCCESS) return FAILED;
 	 			printf("Inode number: %d \n", (int)f->inode_index);
- 				if(insert_data_block_index(f, f->inode->blocksFileSize + i, indice) <= 0) 
+ 				if(insert_data_block_index(f, f->inode->blocksFileSize + i, indice) <= 0)
 					return failed("write2 failed to insert new block in inode");
 			printf("blocks fs after: %d\n", f->inode->blocksFileSize);
  			}
-		//printf("print aleatorio dentro do for\n"); 
+		//printf("print aleatorio dentro do for\n");
 		}
 		printf("+++Blocks File size after alloc: %d\n", f->inode->blocksFileSize);
 		//printf("INode depois # blocos: %d\n", f->inode->blocksFileSize);
@@ -1855,7 +1858,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
  	}
 	cur_data_byte = 0;
-	printf("+++Current max capacity right before write: %d\n", current_max_capacity); 
+	printf("+++Current max capacity right before write: %d\n", current_max_capacity);
 
  	if (f->current_pointer + size <= current_max_capacity) {
 
@@ -1873,7 +1876,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
  			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
  				write_length = size - cur_data_byte;
  			else write_length = bytes_per_block - byte_shift;
-			
+
 			printf("-2--char -> %c\n", (buffer[cur_data_byte]));
 			printf("-3--WRITING BLOCK- cur data byte %d, byte_shift: %d, write length %d\n", cur_data_byte,byte_shift,write_length);
  			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
