@@ -222,7 +222,6 @@ int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size)
 int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size);
 
 int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks);
-int write_data(T_INODE* inode, int position, char *buffer, int size);
 int get_data_block_index(T_FOPEN* file, DWORD cur_block_number);
 int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index);
 int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size);
