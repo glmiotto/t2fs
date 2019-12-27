@@ -1593,7 +1593,7 @@ int read2 (FILE2 handle, char *buffer, int size) {
 		size = file_size_bytes - f->current_pointer;
 	}
 	if (size == 0) return 0;
-	
+
 
 	printf("fcurr %d - fsizeb %d\n", f->current_pointer, file_size_bytes);
 	 while (cur_data_byte < size && f->current_pointer < file_size_bytes) {
@@ -1662,6 +1662,7 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 		current_data_byte += bytes_to_copy;
 		sector_byte = 0;
 		write_sector(sector, sector_buffer);
+		sector++;
 	}
 
 	set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_OCCUPIED);
@@ -1887,7 +1888,8 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
 			printf("-2--char -> %c\n", (buffer[cur_data_byte]));
 			printf("-3--WRITING BLOCK- cur data byte %d, byte_shift: %d, write length %d\n", cur_data_byte,byte_shift,write_length);
- 			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
+
+			write_block(cur_block_index, (BYTE*)&(buffer[cur_data_byte]), byte_shift, write_length);
 //printf("WRITE LENGTH %d\n", write_length);
 //printf("current pointer > %d\n",f->current_pointer);
  			f->current_pointer += write_length;
@@ -2900,4 +2902,3 @@ int hln2(char *linkname, char *filename) {
 	}
 	return SUCCESS;
 }
-
