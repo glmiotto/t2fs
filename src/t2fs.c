@@ -1127,7 +1127,6 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	//printf("[RPBM] final sector in partition: %d\n", mounted->mbr_data->final_sector);
 	if(handle == BITMAP_INODES){
 		if(number >= 1 && number <= last_inode ){
-			printf("Bitmap Inodes\n");
 			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
 				return failed("[RPBMap] Failed to set inode bit free");
 			}
@@ -1136,17 +1135,14 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	}
 	else if (handle == BITMAP_BLOCKS){
 		if(number >= first_data_block && number <= last_data_block){
-			printf("Bitmap Blocks\n");
-			printf("Bit free: %d\n",BIT_FREE);
 			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
 				return failed("[RPBMap] Failed to set block bit free");
 			}
 			else {
-				printf("Cleared block %d\n",number);
 				if(wipe_block(number)!= SUCCESS)
 					print("[RPBM] Failed block data wipe");
 
-				printf("Cleared block %d - wiped. success.\n",number);
+				printf("Cleared+wiped block %d. success.\n",number);
 				return SUCCESS;
 			}
 		}
@@ -1377,14 +1373,18 @@ FILE2 create2 (char *filename) {
 
 	DWORD inode_index = next_bitmap_index(BITMAP_INODES, BIT_FREE);
 	if(inode_index == NOT_FOUND)
-		return(failed("No inodes free"));
+		return failed("No inodes free");
 	else if(inode_index < FIRST_VALID_BIT)
-		return(failed("Failed bitmap query."));
+		return failed("Failed bitmap query.");
 
 	T_RECORD* record = alloc_record(1);
 
 	if(find_entry(filename, &record) == SUCCESS){
-		return failed("Filename already exists.");
+		// FILENAME ALREADY EXISTS
+		printf("Create: Filename already exists. Erasing content.\n");
+		if(delete2(filename) != SUCCESS){
+			return failed("Create: Failed to overwrite existing file.");
+		}
 	}
 
 	T_INODE* inode = alloc_inode(1);
@@ -1412,13 +1412,13 @@ int delete2 (char *filename) {
 	else {
 		T_INODE* inode = alloc_inode(1);
 		if( access_inode(record->inodeNumber, inode) != SUCCESS)
-			return failed("[DELETE2] Failed access inode");
+			return failed("[DEL2] Failed access inode");
 
 		int i;
 		for (i = 0; i< MAX_FILES_OPEN; i++){
 			if(mounted->root->open_files[i].record != NULL){
 				if(strcmp(filename,mounted->root->open_files[i].record->name) == 0){
-					printf("Cannot delete file currently opened. Close before deleting.\n");
+					printf("[DEL2] Files that are opened cannot be deleted. Close and try again.\n");
 					return FAILED;
 				}
 			}
@@ -1616,7 +1616,7 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 
 	while(sector < max_sector && current_data_byte < data_size){
 		if(read_sector(sector, sector_buffer)) {
-			printf("error at writeblock\n");
+			printf("[WRITEBLOCK] Failed to read sector.\n");
 			return -1;
 		}
 
@@ -1633,7 +1633,7 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 	}
 
 	if(set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_OCCUPIED) != SUCCESS){
-		return failed("[WRITEBLOCK] Failed set bitmap index occupied");
+		return failed("[WRITEBLOCK] Failed to set bitmap index as occupied");
 	}
 	return SUCCESS;
 }
@@ -1675,7 +1675,7 @@ int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int dat
 	while(sector < max_sector && current_data_byte < data_size){
 		// printf("[READBLOCK] Sector = %d\n", sector);
 		if(read_sector(sector, sector_buffer)) {
-		  printf("error at writeblock\n");
+		  printf("[READBLOCK] Failed to read a sector.\n");
 			return -1;
 		}
 
@@ -1840,7 +1840,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 					return failed("write2 failed to insert new block in inode");
 				// printf("blocks fs after each alloc: %d\n", f->inode->blocksFileSize);
  			}
-		// printf("print aleatorio dentro do for\n");
 		}
 		// printf("+++Blocks File size after all allocs: %d\n", f->inode->blocksFileSize);
 		// printf("INode depois # blocos: %d\n", f->inode->blocksFileSize);
@@ -1885,7 +1884,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		// printf("1CURRENT: %d\n", f->current_pointer);
 		// printf("1FILESIZE: %d\n", f->inode->bytesFileSize);
 		if(f->current_pointer >= f->inode->bytesFileSize) {
-			// printf("entrou\n");
 			f->inode->bytesFileSize += (f->current_pointer - f->inode->bytesFileSize);
 			if(update_inode(f->inode_index, *(f->inode)) != SUCCESS) return failed("fail");
 			// printf("2CURRENT: %d\n", f->current_pointer);
