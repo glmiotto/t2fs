@@ -163,7 +163,7 @@ int load_root(){
 	mounted->root =  (T_DIRECTORY*)malloc(sizeof(T_DIRECTORY));
 	T_DIRECTORY* rt = mounted->root;
 
-	rt->open = false; // TODO: nao acho que ja posso assumir isso
+	rt->open = false;
 	rt->inode = dir_node ;
 	rt->inode_index = ROOT_INODE;
 	rt->entry_index = DEFAULT_ENTRY;
@@ -220,7 +220,7 @@ void report_superblock(T_SUPERBLOCK sb, int partition){
 }
 
 void report_open_files(){
-	printf("********************************\n");
+	printf("===============================================\n");
 	printf("Reporting open files: \n");
 	int i;
 	for(i=0; i< MAX_FILES_OPEN; i++){
@@ -228,12 +228,10 @@ void report_open_files(){
 		printf("File inode: %p\n", mounted->root->open_files[i].inode);
 		printf("File pointer: %d\n", mounted->root->open_files[i].current_pointer);
 		printf("File handle: %d\n", mounted->root->open_files[i].handle);
-		printf("\n");
+		printf("---\n");
 	}
-	printf("********************************\n");
+	printf("===============================================\n");
 }
-
-
 
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	memcpy(sb->id, bytes, 4);
@@ -268,11 +266,11 @@ void print_RECORD(T_RECORD* record){
 	if(record==NULL) {
 		//printf("Record is nullptr.");
 		return;}
-	printf("--------------\n");
+	printf("===============================================\n");
 	printf("File name: %s\n", record->name);
 	printf("File type: %x\n", record->TypeVal);
 	printf("inode index: %x\n", record->inodeNumber);
-
+	printf("===============================================\n");
 }
 
 int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
@@ -283,13 +281,13 @@ int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 
 	format2(0, 4);
 	BYTE* buffer = alloc_sector();
-	printf("Reading sector from disk...\n");
 	int j = 0;
 	printf("Initial sector: %d\n", mbr->disk_partitions[j].initial_sector);
 	printf("Final sector: %d\n", mbr->disk_partitions[j].final_sector);
 	printf("Partition name: %s\n", mbr->disk_partitions[j].partition_name);
-	if(read_sector(mbr->disk_partitions[j].initial_sector, buffer) <0)
-			printf("Nao leu sector certo\n");
+	printf("Reading sector from disk...\n");
+	if(read_sector(mbr->disk_partitions[j].initial_sector, buffer) != SUCCESS)
+			printf("Failed to read sector.\n");
 
 	BYTE_to_SUPERBLOCK(buffer, sb);
 
@@ -350,13 +348,10 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 	// block bitmap size is dependent on how many blocks are left after the bitmap.
 	// therefore it is equal to current surviving blocks div by (8*bytes per block)+1
 
-
 	sb->freeBlocksBitmapSize = (WORD)
 		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
 
-
 	sb->Checksum = calculate_checksum(*sb);
-
 
 	BYTE sector[SECTOR_SIZE] = {0};
 	int i;
@@ -366,7 +361,6 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 			return -1;
 		}
 	}
-
 	//report_superblock(*sb, partition);
 	save_superblock(*sb, partition);
 	return SUCCESS;
@@ -394,7 +388,6 @@ int save_superblock(T_SUPERBLOCK sb, int partition) {
 
 int load_superblock() {
 	if (!is_mounted()) return(failed("Unmounted."));
-
 	mounted->superblock = (T_SUPERBLOCK*) malloc(sizeof(T_SUPERBLOCK));
 	BYTE* buffer = alloc_sector();
 
@@ -420,7 +413,6 @@ int load_mbr(BYTE* master_sector, MBR* mbr) {
 	mbr->num_partitions = to_int(&(master_sector[6]),2);
 	mbr->disk_partitions = (PARTITION*)malloc(sizeof(PARTITION)*mbr->num_partitions);
 	int i;
-
 	for(i = 0; i < mbr->num_partitions; ++i){
 		int j = 8 + i*sizeof(PARTITION); //32 bytes per partition in the boot record
 		mbr->disk_partitions[i].initial_sector = to_int(&(master_sector[j]),4);
@@ -454,7 +446,6 @@ int calculate_checksum(T_SUPERBLOCK sb) {
 }
 
 int initialize_inode_area(T_SUPERBLOCK* sb, int partition){
-
 	// first inode sector
 	int first_sector = disk_mbr.disk_partitions[partition].initial_sector;
 	first_sector += (sb->superblockSize+sb->freeInodeBitmapSize+sb->freeBlocksBitmapSize)*sb->blockSize;
@@ -530,12 +521,11 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 	int pre_data_blocks =
 		sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
 
-
 	//printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
 	for (bit= 0; bit < pre_data_blocks; bit++) {
 		// non addressable blocks are marked OCCUPIED forever
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			printf("bit ruim %d\n", bit);
+			//printf("bit ruim %d\n", bit);
 			return(failed("Failed to set reserved bit as occupied in blocks bitmap"));
 		}
 	}
@@ -550,9 +540,8 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 	}
 
 	if(closeBitmap2() != SUCCESS) {
-		//printf("------> WARNING: Could not save bitmap info to disk.");
+		printf("WARNING: Could not save bitmap info to disk.");
 	}
-
 	return SUCCESS;
 }
 
@@ -659,7 +648,7 @@ BYTE* get_block(int sector, int offset, int n){
 
 	return block;
 }
-
+/*-----------------------------------------------------------------------------*/
 // Next Bitmap Index:
 // Output ZERO if none of that bit value found in bitmap.
 // Output positive int index when found.
@@ -688,6 +677,7 @@ int next_bitmap_index(int bitmap_handle, int bit_value){
 	return index;
 }
 
+/*-----------------------------------------------------------------------------*/
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 	/* Validation */
 	if ((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES)){
@@ -713,7 +703,7 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 	}
 	return SUCCESS;
 }
-
+/*-----------------------------------------------------------------------------*/
 MAP* blank_map() {
 	MAP* map = (MAP*)malloc(sizeof(MAP));
 	map->indirection_level = 0;
@@ -736,7 +726,7 @@ MAP* blank_map() {
 
 	return map;
 }
-
+/*-----------------------------------------------------------------------------*/
 int new_record2(T_RECORD* rec){
 	if (init() != SUCCESS) return failed("Failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
@@ -903,7 +893,9 @@ int new_record2(T_RECORD* rec){
 					}
 				}
 
-		} else if (map->indirection_level == 2){return -1;
+		}
+		else if (map->indirection_level == 2){
+			return -1;
 			if(map->data_block > INVALID) {
 				// TINHA BLOCO ALOCADO COM ESPACO LIVRE
 				write_block(
@@ -1108,35 +1100,6 @@ int new_file(char* filename, T_INODE** inode){
 
 	//adds record to root directory
 	if(new_record2(rec) != SUCCESS) return(failed("NewFile: Failed to save record"));
-	return SUCCESS;
-}
-
-int set_file_open(T_INODE* file_inode){
-	return FAILED;
-}
-
-int set_file_close(FILE2 handle){
-	if(handle >= MAX_FILES_OPEN || handle < 0){
-		//printf("Handle out of bounds.");
-		return FAILED;
-	}
-	if (!is_mounted())   return(failed("SetFileClose failed 1"));
-	if (!is_root_loaded()) return(failed("SetFileClose failed 2"));
-
-	T_FOPEN* fopen = mounted->root->open_files;
-
-	if(fopen[handle].inode == NULL) {
-		//printf("File handle does not correspond to an open file.");
-		return -1;
-	}
-	else mounted->root->num_open_files--;
-
-	// In either case, overwriting fopen data to make sure.
-	fopen[handle].inode 		= NULL;
-	fopen[handle].current_pointer = 0;
-	fopen[handle].inode_index 	=	0;
-	fopen[handle].record = NULL;
-
 	return SUCCESS;
 }
 
@@ -1559,7 +1522,25 @@ int close2 (FILE2 handle) {
 	if (init() != SUCCESS) return failed("close2: failed to initialize");
 	if(!is_mounted()) return failed("No partition mounted.");
 	if(!is_root_loaded()) return failed("Directory must be opened.");
-	return set_file_close(handle);
+
+	if(handle >= MAX_FILES_OPEN || handle < 0){
+		printf("[CLOSE] Handle out of bounds.");
+		return FAILED;
+	}
+	T_FOPEN* fopen = mounted->root->open_files;
+
+	if(fopen[handle].inode == NULL) {
+		printf("[CLOSE] File handle does not correspond to an open file.");
+		return -1;
+	}
+	else mounted->root->num_open_files--;
+
+	// In either case, overwriting fopen data to make sure.
+	fopen[handle].inode 		= NULL;
+	fopen[handle].current_pointer = 0;
+	fopen[handle].inode_index 	=	0;
+	fopen[handle].record = NULL;
+	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1572,10 +1553,8 @@ int read2 (FILE2 handle, char *buffer, int size) {
 	 if (init() != SUCCESS) return failed("close2: failed to initialize");
 	 if(!is_mounted()) return failed("No partition mounted.");
 	 if(!is_root_loaded()) return failed("Directory must be opened.");
-	 //f(!is_valid_handle(handle)) return failed("Invalid Fopen handle."); // cant compile without a function
 	 if(size <= 0) return failed("Invalid number of bytes.");
-	 // TODO: verificar se pode numero negativo de bytes
-	 // (ler os x bytes anteriores ao current pointer e atualizar o current)
+
 	 T_FOPEN* f = &(mounted->root->open_files[handle]);
 	 if(f->inode == NULL) return FAILED;
 

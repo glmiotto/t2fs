@@ -218,8 +218,6 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
 int remove_pointer_from_bitmap(DWORD number, WORD handle);
 int remove_file_content(T_INODE* inode);
 int remove_record(char* filename);
-int set_file_open(T_INODE* file_inode);
-int set_file_close(FILE2 handle);
 BYTE* get_block(int sector, int offset, int n);
 int iterate_singlePtr(DWORD indirection_block);
 int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block);
