@@ -1199,55 +1199,73 @@ int init_open_files(){
 
 int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	//int bit = floor(pointer - sector_start/block_size);
-
+	if (number == INVALID) return FAILED;
 	T_SUPERBLOCK* sb = mounted->superblock;
 	DWORD first_inode_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
 	DWORD first_data_block = first_inode_block + sb->inodeAreaSize;
 	DWORD last_inode = sb->inodeAreaSize*sb->blockSize*INODES_PER_SECTOR -1;
 	DWORD last_data_block = mounted->mbr_data->final_sector / sb->blockSize ;
 	printf("[RPBM] h=%d, block=%d\n", handle, number);
-	printf("[RPBM] bounds inodes: %d - %d\n", 1, last_inode);
-	printf("[RPBM] bounds dados: %d - %d\n", first_data_block, last_data_block);
-	printf("[RPBM] final sector in partition: %d\n", mounted->mbr_data->final_sector);
+	//printf("[RPBM] bounds inodes: %d - %d\n", 1, last_inode);
+	//printf("[RPBM] bounds dados: %d - %d\n", first_data_block, last_data_block);
+	//printf("[RPBM] final sector in partition: %d\n", mounted->mbr_data->final_sector);
 	if(handle == BITMAP_INODES){
 		if(number >= 1 && number <= last_inode ){
+			printf("Bitmap Inodes\n");
 			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
 				return failed("[RPBMap] Failed to set inode bit free");
 			}
 			else return SUCCESS;
-			// if(setBitmap2(handle, number, BIT_FREE) == SUCCESS){
-			// 			return SUCCESS;
-			// }
 		}
 	}
 	else if (handle == BITMAP_BLOCKS){
 		if(number >= first_data_block && number <= last_data_block){
-			if (set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
+			printf("Bitmap Blocks\n");
+			printf("Bit free: %d\n",BIT_FREE);
+			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
 				return failed("[RPBMap] Failed to set block bit free");
 			}
-			else return SUCCESS;
-				// if(setBitmap2(handle, number, BIT_FREE)==SUCCESS){
-				// 			return SUCCESS;
-				// }
+			else {
+				printf("Cleared block %d\n",number);
+				if(wipe_block(number)!= SUCCESS)
+					print("[RPBM] Failed block data wipe");
+
+				printf("Cleared block %d - wiped. success.\n",number);
+				return SUCCESS;
+			}
 		}
 	}
 	return FAILED;
 }
 
-int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size){
+int iterate_singlePtr(DWORD indirection_block){
 
-	//realiza leitura de um setor do bloco de indices
+	if(indirection_block == INVALID){
+		return FAILED;
+	}
+
+	// Bloco de indices contendo
+	// ponteiros 4By para blocos de dados(representados no bitmap)
+	// Um setor = 64 ponteiros
 	BYTE* buffer = alloc_sector();
 	int i, j;
-	for(i=0; i < block_size; i++){
-		if(read_sector(start_data_sector, buffer) != SUCCESS) {
-			return failed("Failed to read MBR"); }
+	int sectors_per_block = mounted->superblock->blockSize;
+	int pointers_per_sector = mounted->pointers_per_block/sectors_per_block;
+
+	int sector_offset = mounted->mbr_data->initial_sector;
+	sector_offset += (indirection_block*sectors_per_block);
+
+	for(i=0; i < sectors_per_block; i++){
+		if(read_sector(sector_offset + i, buffer) != SUCCESS) {
+			return failed("Failed to read sector");
+		}
 		//iterate pointers in sector
-		for(j=0; j < 64; j++){
-			if(buffer[j]!=0x00)
+		for(j=0; j < pointers_per_sector; j++){
+			if(buffer[j] != 0x00)
 				remove_pointer_from_bitmap(buffer[j], BITMAP_BLOCKS);
 		}
 	}
+	remove_pointer_from_bitmap(indirection_block, BITMAP_BLOCKS);
 	free(buffer);
 	return SUCCESS;
 }
@@ -1313,16 +1331,20 @@ int remove_file_content(T_INODE* inode){
 
 	// percorre ponteiros diretos para blocos de dados
 	printf("[RFC] disaloc dataptrs %d, %d\n", inode->dataPtr[0], inode->dataPtr[1]);
+	printf("[RFC] single ind %d\n", inode->singleIndPtr);
 
 	// if(openBitmap2(superbloco_sector) != SUCCESS)
 	// 	return failed("[RemoveFileContent] Failed open BM");
 	//
+	printf("Clearing data block 0.\n");
 	remove_pointer_from_bitmap(inode->dataPtr[0], BITMAP_BLOCKS);
+	printf("Clearing data block 1.\n");
 	remove_pointer_from_bitmap(inode->dataPtr[1], BITMAP_BLOCKS);
 
 	// percorre ponteiros indiretos de indirecao simples
-	//iterate_singlePtr(inode, start_data_sector, block_size);
-
+	printf("Clearing single indirection block.\n");
+	iterate_singlePtr(inode->singleIndPtr);
+	printf("Clearing double indirection block.\n");
 	// percorre ponteiros de indirecao dupla, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
 	//iterate_doublePtr(inode, start_inode_sector, start_data_sector, block_size);
 
@@ -1733,6 +1755,25 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 	return SUCCESS;
 }
 
+int wipe_block(DWORD block_index){
+	int bytes_per_block = mounted->superblock->blockSize*SECTOR_SIZE;
+	BYTE* blank_block = (BYTE*) malloc(bytes_per_block);
+	int i;
+	for (i=0;i<bytes_per_block;i++){
+		blank_block[i]=0;
+	}
+	if(write_block(block_index, blank_block, 0, bytes_per_block) != SUCCESS){
+		free(blank_block);
+		set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_FREE);
+		return failed("[WIPE_BLOCK] Failed to write blank block.");
+	}
+	else {
+		set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_FREE);
+		free(blank_block);
+		return SUCCESS;
+	}
+}
+
 int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size ){
 
 	DWORD bytes_per_block = mounted->superblock->blockSize * SECTOR_SIZE;
@@ -1906,9 +1947,8 @@ int write2 (FILE2 handle, char *buffer, int size) {
  		// alloc more blocks + update inode
 		float new_bytes = f->current_pointer + size - current_max_capacity;
 		DWORD number_new_blocks = ceil(new_bytes/bytes_per_block);
-		printf("[WRITE2] NEW BYTES: %f NEW BLOCKS: %d\n",new_bytes,number_new_blocks );
+		printf("[WRITE2] NEW BYTES: %.2f NEW BLOCKS: %d\n",new_bytes,number_new_blocks );
 		//DWORD number_new_blocks = 1+(f->current_pointer + size - current_max_capacity)/bytes_per_block;
-
 		//printf("Number of new blocks %d\n",(int)number_new_blocks );
 		//printf("INode antes # blocos: %d\n", f->inode->blocksFileSize);
  		int i;

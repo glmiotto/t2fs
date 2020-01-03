@@ -195,6 +195,8 @@ int save_record(T_RECORD* record);
 int save_superblock();
 
 int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size );
+int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size );
+int wipe_block(DWORD block_index);
 
 // Directory
 int find_entry(char* filename, T_RECORD** record);
@@ -219,13 +221,12 @@ int remove_record(char* filename);
 int set_file_open(T_INODE* file_inode);
 int set_file_close(FILE2 handle);
 BYTE* get_block(int sector, int offset, int n);
-int iterate_singlePtr(T_INODE* inode, DWORD start_data_sector, DWORD block_size);
+int iterate_singlePtr(DWORD indirection_block);
 int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size);
 
 int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks);
 int get_data_block_index(T_FOPEN* file, DWORD cur_block_number);
 int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index);
-int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size);
 /* **************************************************************** */
 
 /*-----------------------------------------------------------------------------
