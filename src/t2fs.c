@@ -1270,88 +1270,57 @@ int iterate_singlePtr(DWORD indirection_block){
 	return SUCCESS;
 }
 
-int iterate_doublePtr(T_INODE* inode, DWORD start_inode_sector, DWORD start_data_sector, DWORD block_size){
+int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block){
+
+	if (double_indirection_block == INVALID) return FAILED;
+
+	int sectors_per_block = mounted->superblock->blockSize;
+	int pointers_per_sector = mounted->pointers_per_block/sectors_per_block;
+	int sector_offset = mounted->mbr_data->initial_sector;
+	sector_offset += (double_indirection_block*sectors_per_block);
 
 	//realiza leitura de um setor do bloco de indices
-	BYTE* sector1 = alloc_sector();
-	BYTE* sector2 = alloc_sector();
-
+	BYTE* sector = alloc_sector();
 	//iterate through sectors in block1
 	int i1, j1;
-	for(i1=0; i1 < block_size; i1++)
-	{
-		if(read_sector(start_inode_sector, sector1) != SUCCESS) {
-			return failed("Failed to read MBR"); }
-
+	for(i1=0; i1 < sectors_per_block; i1++){
+		if(read_sector(sector_offset + i1, sector) != SUCCESS) {
+			free(sector);
+			return failed("[IterDouble]Failed to read sector");
+		}
 		//iterate through pointers in sector1
-		for(j1=0; j1 < 64; j1++)
-		{
-			if(sector1[j1]!=0x00){
-
-				//iterate through sectors in block2
-				int i2, j2;
-				for(i2=0; i2 < block_size; i2++)
-				{
-					if(read_sector(start_inode_sector, sector2) != SUCCESS) {
-						return failed("Failed to read MBR");
-					}
-
-					//iterate through pointers in sector2
-					for(j2=0; j2 < 64; j2++)
-					{
-						if(sector2[j2]!=0x00)
-							remove_pointer_from_bitmap(sector2[j2], BITMAP_BLOCKS);
-					}
-				}
+		for(j1=0; j1 < pointers_per_sector; j1++){
+			if(sector[j1] != 0x00){
+				// pointer to single indirection index-block.
+				// apply to iterate_singlePtr to deal with deeper level pointers
+				// and then itself.
+				iterate_singlePtr(sector[j1]);
 			}
-
-			remove_pointer_from_bitmap(sector1[j1], BITMAP_INODES);
-
 		}
 	}
-
-	free(sector1);
-	free(sector2);
-
+	remove_pointer_from_bitmap(double_indirection_block, BITMAP_BLOCKS);
+	free(sector);
 	return SUCCESS;
 }
 
 int remove_file_content(T_INODE* inode){
-	// int superbloco_sector = mounted->mbr_data->initial_sector;
-	//
-	// T_SUPERBLOCK* sb = mounted->superblock;
-	//
-	// DWORD start_block = sb->superblockSize + sb->freeBlocksBitmapSize + sb->freeInodeBitmapSize;
-	// // Add offset to where the partition starts in the disk
-	// int start_inode_sector = mounted->mbr_data->initial_sector;
-	// // Add offset to where in the partition the inodes start
-	// start_inode_sector += start_block * sb->blockSize;
-	//
-	// int start_data_sector = start_inode_sector + (sb->inodeAreaSize * sb->blockSize);
-
 	// percorre ponteiros diretos para blocos de dados
-	printf("[RFC] disaloc dataptrs %d, %d\n", inode->dataPtr[0], inode->dataPtr[1]);
-	printf("[RFC] single ind %d\n", inode->singleIndPtr);
+	printf("[RemContent] direct blocks %d, %d\n", inode->dataPtr[0], inode->dataPtr[1]);
+	printf("[RemContent] single ind %d\n", inode->singleIndPtr);
+	printf("[RemContent] double ind %d\n", inode->doubleIndPtr);
 
-	// if(openBitmap2(superbloco_sector) != SUCCESS)
-	// 	return failed("[RemoveFileContent] Failed open BM");
-	//
-	printf("Clearing data block 0.\n");
+	printf("[RemContent] Clearing first direct data block.\n");
 	remove_pointer_from_bitmap(inode->dataPtr[0], BITMAP_BLOCKS);
-	printf("Clearing data block 1.\n");
+	printf("[RemContent] Clearing second direct data block.\n");
 	remove_pointer_from_bitmap(inode->dataPtr[1], BITMAP_BLOCKS);
 
 	// percorre ponteiros indiretos de indirecao simples
-	printf("Clearing single indirection block.\n");
+	printf("[RemContent] Clearing single indirection block.\n");
 	iterate_singlePtr(inode->singleIndPtr);
-	printf("Clearing double indirection block.\n");
+	printf("[RemContent] Clearing double indirection block.\n");
 	// percorre ponteiros de indirecao dupla, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
-	//iterate_doublePtr(inode, start_inode_sector, start_data_sector, block_size);
-
-	// if(closeBitmap2() != SUCCESS)
-	// 	return failed("[RemoveFileContent] Failed close BM");
-	//
-
+	iterate_doublePtr(inode, inode->doubleIndPtr);
+	printf("[RemContent] Removed all file content from disk.\n");
 	return SUCCESS;
 }
 
@@ -1547,18 +1516,18 @@ int delete2 (char *filename) {
 		  if(inode->RefCounter == 0) {
 			 printf("[DEL2] Regular Removing file contents inode %d\n", record->inodeNumber);
 			 remove_file_content(inode);
-			 printf("[DEL2] Regular setting inode bm free?\n");
+			 printf("[DEL2] Regular Setting inode bitmap free.\n");
 			 if(set_bitmap_index(BITMAP_INODES,record->inodeNumber, BIT_FREE)!=SUCCESS)
-				 return failed("[DELETE2] Failed set bit free inode");
+				 return failed("[DEL2] Failed to set inode bitmap free");
 			}
 			return SUCCESS;
 		}
 		else {
 			printf("[DEL2] Link Removing file contents inode %d\n", record->inodeNumber);
 			remove_file_content(inode);
-			printf("[DEL2] Link setting inode bm free?\n");
+			printf("[DEL2] Link Setting inode bitmap free.\n");
 			if(set_bitmap_index(BITMAP_INODES,record->inodeNumber, BIT_FREE)!=SUCCESS)
-				return failed("[DELETE2] Failed set bit free inode");
+				return failed("[DEL2] Failed to set inode bitmap free");
 			delete_entry(filename);
 			return SUCCESS;
 		}
