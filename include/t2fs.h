@@ -139,6 +139,7 @@ int init();
 int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block);
 int init_open_files();
 int calculate_checksum(T_SUPERBLOCK sb);
+int initialize_inode_area(T_SUPERBLOCK* sb, int partition);
 
 int load_mbr(BYTE* master_sector, MBR* mbr);
 int load_superblock();
@@ -212,7 +213,7 @@ int map_index_to_record(DWORD index, T_RECORD** record, MAP* map);
 int next_bitmap_index(int bitmap_handle, int bit_value);
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
 
-int remove_pointer_from_bitmap(DWORD pointer, DWORD sector_start, DWORD block_size, WORD handle);
+int remove_pointer_from_bitmap(DWORD number, WORD handle);
 int remove_file_content(T_INODE* inode);
 int remove_record(char* filename);
 int set_file_open(T_INODE* file_inode);
