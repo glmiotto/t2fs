@@ -694,7 +694,7 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 		return failed("[SetBitmap] Failed to open bitmap");
 	}
 
-	printf("[SetBM] h=%d, index: %d, value=%d\n",bitmap_handle, index, bit_value);
+	//printf("[SetBM] h=%d, index: %d, value=%d\n",bitmap_handle, index, bit_value);
 	if(setBitmap2(bitmap_handle, (int)index, bit_value) != SUCCESS)
 	 	return(failed("Failed to set bitmap bit."));
 
@@ -1121,7 +1121,7 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	DWORD first_data_block = first_inode_block + sb->inodeAreaSize;
 	DWORD last_inode = sb->inodeAreaSize*sb->blockSize*INODES_PER_SECTOR -1;
 	DWORD last_data_block = mounted->mbr_data->final_sector / sb->blockSize ;
-	printf("[RPBM] h=%d, block=%d\n", handle, number);
+	printf("[CLEAR] h=%d, block=%d\n", handle, number);
 	//printf("[RPBM] bounds inodes: %d - %d\n", 1, last_inode);
 	//printf("[RPBM] bounds dados: %d - %d\n", first_data_block, last_data_block);
 	//printf("[RPBM] final sector in partition: %d\n", mounted->mbr_data->final_sector);
@@ -1142,7 +1142,7 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 				if(wipe_block(number)!= SUCCESS)
 					print("[RPBM] Failed block data wipe");
 
-				printf("Cleared+wiped block %d. success.\n",number);
+				printf("[CLEAR] block %d success.\n",number);
 				return SUCCESS;
 			}
 		}
@@ -1152,9 +1152,7 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 
 int iterate_singlePtr(DWORD indirection_block){
 
-	if(indirection_block == INVALID){
-		return FAILED;
-	}
+	if(indirection_block == INVALID) return FAILED;
 
 	// Bloco de indices contendo
 	// ponteiros 4By para blocos de dados(representados no bitmap)
@@ -1163,7 +1161,6 @@ int iterate_singlePtr(DWORD indirection_block){
 	int i, j;
 	int sectors_per_block = mounted->superblock->blockSize;
 	int pointers_per_sector = mounted->pointers_per_block/sectors_per_block;
-
 	int sector_offset = mounted->mbr_data->initial_sector;
 	sector_offset += (indirection_block*sectors_per_block);
 
@@ -1173,8 +1170,7 @@ int iterate_singlePtr(DWORD indirection_block){
 		}
 		//iterate pointers in sector
 		for(j=0; j < pointers_per_sector; j++){
-			if(buffer[j] != 0x00)
-				remove_pointer_from_bitmap(buffer[j], BITMAP_BLOCKS);
+			remove_pointer_from_bitmap(buffer[j*DATA_PTR_SIZE_BYTES], BITMAP_BLOCKS);
 		}
 	}
 	remove_pointer_from_bitmap(indirection_block, BITMAP_BLOCKS);
@@ -1198,16 +1194,14 @@ int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block){
 	for(i1=0; i1 < sectors_per_block; i1++){
 		if(read_sector(sector_offset + i1, sector) != SUCCESS) {
 			free(sector);
-			return failed("[IterDouble]Failed to read sector");
+			return failed("[IterDouble] Failed to read sector");
 		}
 		//iterate through pointers in sector1
 		for(j1=0; j1 < pointers_per_sector; j1++){
-			if(sector[j1] != 0x00){
 				// pointer to single indirection index-block.
 				// apply to iterate_singlePtr to deal with deeper level pointers
 				// and then itself.
-				iterate_singlePtr(sector[j1]);
-			}
+			iterate_singlePtr(sector[j1*DATA_PTR_SIZE_BYTES]);
 		}
 	}
 	remove_pointer_from_bitmap(double_indirection_block, BITMAP_BLOCKS);
@@ -1694,6 +1688,7 @@ int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int dat
 
 int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) {
 
+	printf("[DATABLOCK] Alloc %d\n", index);
  	if (index == INVALID) return failed("[INSERTDATABLOCK] Invalid bit index");
 	// printf("Indice achado para o bloco de dados %d\n", index);
 	int limit_direct = 2;
@@ -1716,7 +1711,7 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
  		if (indirection_index == INVALID) {
 			// =-=-=-= Allocate single indirection block =-=-=-= //
  			DWORD indirection = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[INSERTDATABLOCK] Next indirection block bit: %d\n", indirection);
+			printf("[DATABLOCK] Next indirection block bit: %d\n", indirection);
  			if(indirection < FIRST_VALID_BIT){ return failed("Write2: Failed to find enough free data blocks.");}
  			if(set_bitmap_index(BITMAP_BLOCKS, indirection, BIT_OCCUPIED) != SUCCESS){return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
@@ -1737,7 +1732,7 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 		// printf("[IDBAtr] Escreve block em byte: %d\n",sector_in_block*SECTOR_SIZE+shift_in_sector);
  		if(write_block(indirection_index, (BYTE*)&index,
  			sector_in_block*SECTOR_SIZE+shift_in_sector*DATA_PTR_SIZE_BYTES, DATA_PTR_SIZE_BYTES) != SUCCESS)
-				return failed("[INSERTDATABLOCK] failed to write block inode indir");
+				return failed("[DATABLOCK] failed to write block inode indir");
  		else {
 			file->inode->blocksFileSize++;
  			if(update_inode(file->inode_index, *(file->inode)) != SUCCESS) return failed("fail");
@@ -1753,19 +1748,19 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 
 			// =-=-=-= Allocate double indirection block =-=-=-= //
 			DWORD new_double_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[INSERTDATABLOCK] Next double indirection block bit: %d\n", new_double_index);
+			printf("[DATABLOCK] Next double indirection block bit: %d\n", new_double_index);
 			if(new_double_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_double_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Allocate single indirection block =-=-=-= //
 			DWORD new_single_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[INSERTDATABLOCK] Next single indirection block bit: %d\n", new_double_index);
+			printf("[DATABLOCK] Next single indirection block bit: %d\n", new_single_index);
 			if(new_single_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_single_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Store pointer for single block in double block =-=-=-= //
 			if(write_block(new_double_index, (BYTE*)&new_single_index, 0, DATA_PTR_SIZE_BYTES) != SUCCESS)
-					return failed("[INSERTDATABLOCK] failed to write block inode indir");
+					return failed("[DATABLOCK] failed to write block inode indir");
 
 			// =-=-=-= Store indirection + update inode =-=-=-= //
 			file->inode->doubleIndPtr = new_double_index;
@@ -1789,13 +1784,13 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 
 			// =-=-=-= Allocate single indirection block =-=-=-= //
 			DWORD new_single_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[INSERTDATABLOCK] Next single indirection block bit: %d\n", new_single_index);
+			printf("[DATABLOCK] Next single indirection block bit: %d\n", new_single_index);
 			if(new_single_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_single_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Store pointer for single block in double block =-=-=-= //
 			if(write_block(double_indirection_block, (BYTE*)&new_single_index, sector_in_block*SECTOR_SIZE+shift_in_sector*DATA_PTR_SIZE_BYTES, DATA_PTR_SIZE_BYTES) != SUCCESS)
-					return failed("[INSERTDATABLOCK] failed to write block inode indir");
+					return failed("[DATABLOCK] failed to write block inode indir");
 
 			single_indirection_block = new_single_index;
 		}
