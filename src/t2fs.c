@@ -740,6 +740,36 @@ MAP* blank_map() {
 }
 /*-----------------------------------------------------------------------------*/
 
+int next_entry(int sequential_index, T_RECORD* out_record) {
+
+	T_DIRECTORY* rt = mounted->root;
+	T_INODE* dirnode = rt->inode;
+	DWORD record_size = sizeof(T_RECORD);
+	BYTE* buffer = (BYTE*)malloc(record_size);
+
+	int records_per_block = mounted->superblock->blockSize*SECTOR_SIZE / record_size;
+	int sequential_block, blockid;
+	int record_index_within_block;
+
+	// =-=-=-=-=-=-=-=-= Get data block from inode =-=-=-=-=-=-=-=-= //
+
+	sequential_block = sequential_index / records_per_block;
+	blockid = get_data_block_index(dirnode, sequential_block);
+	if (blockid < INVALID) return failed("[NEXT ENTRY] Failed to retrieve data block");
+	if (blockid == INVALID) return NOT_FOUND;
+
+	// =-=-=-=-=-=-=-=-= Map to record, read and return =-=-=-=-=-=-=-=-= //
+
+	record_index_within_block = sequential_index % records_per_block;
+	if(read_block(blockid, buffer, record_index_within_block*record_size,record_size) != SUCCESS){
+		return failed("[NEXT ENTRY] Failed readblock.");}
+
+	memcpy(out_record, buffer, record_size);
+
+	return 1; // Success
+}
+
+
 int new_entry(T_RECORD* entry ){
 
 	// =-=-=-=-=-=-=-=-= Validation + variables =-=-=-=-=-=-=-=-= //
@@ -2662,22 +2692,15 @@ int readdir2 (DIRENT2 *dentry) {
 
 	// if mounted, check if directory open. if not, open and read the first index.
 	// otherwise read current entry IF VALID or the next valid one.
-	// if end of directory reached, return a code.
 
-	// each call to readdir returns a single entry.
-	// then, ups the internal counter to the next entry for the next call.
-	// return error code if:
-	// can`t read it for some reason
-	// no more valid entries in the open dir.
-	if(!is_root_open()) {
-		opendir2();
-	}
+	if(!is_root_open()) { opendir2(); }
 
 	T_RECORD* rec = alloc_record(1);
-
 	T_INODE* inode = alloc_inode(1);
-	rec->TypeVal = 0x00;
+	T_DIRECTORY* rt = mounted->root;
 
+
+	rec->TypeVal = 0x00;
 	dentry->fileType = 0x00;
 	strcpy(dentry->name, "\0");
 	dentry->fileSize = 0;
@@ -2692,8 +2715,8 @@ int readdir2 (DIRENT2 *dentry) {
 			return -1;
 		}
 
-		map_index_to_record(mounted->root->entry_index, &rec, dummymap);
-
+		//map_index_to_record(mounted->root->entry_index, &rec, dummymap);
+		if(next_entry(rt->entry_index, rec) <= NOT_FOUND) return FAILED;
 		if (rec->TypeVal != 0x00 && access_inode(rec->inodeNumber, inode)) {
 			//printf("Couldn't load inode\n");
 			free(rec);
@@ -2806,7 +2829,6 @@ int sln2 (char *linkname, char *filename) {
 	registro->TypeVal = TYPEVAL_LINK;
 	if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
 	// 51 contando o /0 da string
-	// ops acho que strlen nao conta o \0. MAX_FILENAME_SIZE é 50.
 	strncpy(registro->name, linkname, strlen(linkname)+1);
 	registro->inodeNumber = indice_inode;
 
@@ -2864,12 +2886,10 @@ int hln2(char *linkname, char *filename) {
 	// inicializacao da entrada no dir
 	T_RECORD* registro = blank_record();
 	registro->TypeVal = TYPEVAL_REGULAR;
-	strncpy(registro->name, linkname, strlen(filename)+1);
+	strncpy(registro->name, linkname, strlen(linkname)+1);
 	registro->inodeNumber = indice_inode;
 
-	if(new_entry(registro) <= NOT_FOUND){
-	//if(new_record2(registro) != SUCCESS ){
-		return FAILED;
-	}
+	if(new_entry(registro) <= NOT_FOUND) return FAILED;
+
 	return SUCCESS;
 }
