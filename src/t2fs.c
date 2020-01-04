@@ -703,41 +703,7 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 	}
 	return SUCCESS;
 }
-char *int2bin(DWORD a, char *buffer, int buf_size) {
-    buffer += (buf_size - 1);
 
-    for (int i = 31; i >= 0; i--) {
-        *buffer-- = (a & 1) + '0';
-
-        a >>= 1;
-    }
-
-    return buffer;
-}
-
-/*-----------------------------------------------------------------------------*/
-MAP* blank_map() {
-	MAP* map = (MAP*)malloc(sizeof(MAP));
-	map->indirection_level = 0;
-	map->block_key = 0;
-	map->sector_key = 0;
-  map->sector_shift = 0;
-  map->data_block = 0;
-  map->sector_address = 0;
-  map->buffer_index = 0;
-  map->single_pointer_to_block = 0;
-  map->single_pointer_sector = 0;
-  map->single_pointer_index = 0;
-  map->single_sector_address = 0;
-  map->single_buffer_index = 0;
-  map->double_pointer_to_block = 0;
-  map->double_pointer_sector = 0;
-  map->double_pointer_index = 0;
-  map->double_sector_address = 0;
-  map->double_buffer_index = 0;
-
-	return map;
-}
 /*-----------------------------------------------------------------------------*/
 
 int next_entry(int sequential_index, T_RECORD* out_record) {
@@ -782,7 +748,7 @@ int new_entry(T_RECORD* entry ){
 	T_DIRECTORY* rt = mounted->root;
 	T_INODE* dirnode = rt->inode;
 	T_RECORD* buffer_record = alloc_record(1);
-	T_RECORD* blank = blank_record();
+	T_INODE* buffer_inode = alloc_inode(1);
 
 	DWORD record_size = sizeof(T_RECORD);
 	BYTE* buffer = (BYTE*)malloc(record_size);
@@ -821,7 +787,10 @@ int new_entry(T_RECORD* entry ){
 				return failed("[NEW ENTRY] Failed readblock.");
 			}
 			memcpy(buffer_record, buffer, record_size);
-			if( strcmp(buffer_record->name, blank->name)!=0){
+			//if( strcmp(buffer_record->name, blank->name)!=0){
+
+			if (buffer_record->TypeVal != 0x00) {// && access_inode(buffer_record->inodeNumber, buffer_inode) == SUCCESS) {
+
 				// =-=-=-=-=-=-=-=-= Occupied spot: PASS =-=-=-=-=-=-=-=-= //
 				printf("[NEW ENTRY] Occupied record at spot %d.\n", sequential_index);
 				sequential_index++;
@@ -851,395 +820,6 @@ int new_entry(T_RECORD* entry ){
 	}
 	printf("[NEW ENTRY] All record spots are occupied (current index: %d).\n", sequential_index);
 	return NOT_FOUND;
-}
-
-int new_record2(T_RECORD* rec){
-	if (init() != SUCCESS) return failed("Failed to initialize");
-	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_loaded()) return failed("Directory must be opened.");
-	if (rec == NULL) return failed("Bad record");
-
-	T_DIRECTORY* rt = mounted->root;
-	T_INODE* dirnode = rt->inode;
-	DWORD dentry_size = sizeof(T_RECORD);
-
-	DWORD current_blocks = dirnode->blocksFileSize;
-
-	int my_entry_index = 0;
-	MAP* map = blank_map();
-	T_RECORD* dummy = alloc_record(1);
-	BYTE* buf =(BYTE*)malloc(sizeof(BYTE)*dentry_size);
-	memcpy( buf, rec, dentry_size);
-
-	boolean allocated = false;
-
-	while (my_entry_index < rt->max_entries && allocated == false) {
-		int ret = map_index_to_record(my_entry_index, &dummy, map );
-		//printf("index %d dummytype %d\n", my_entry_index, dummy->TypeVal);
-		//printf("return %d %s\n", ret, ret == NOT_FOUND ? "NOT FOUND" : "FOUND");
-		//printf("map sectorshift %d map sectorkey %d map indir %d\n\n", map->sector_shift, map->sector_key, map->indirection_level);
-		if (ret == NOT_FOUND) {
-
-			if(map->indirection_level == 0) {
-				if(map->data_block > NOT_FOUND){
-					// TINHA BLOCO ALOCADO COM ESPACO LIVRE
-					write_block(
-						 map->data_block,
-						 buf,
-						 map->sector_key*SECTOR_SIZE+map->sector_shift*sizeof(T_RECORD),
-						 dentry_size);
-
-					dirnode->bytesFileSize += dentry_size;
-					rt->total_entries++;
-
-					if (update_inode(0, *dirnode)) {
-						//printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-					allocated = true;
-
-				} else {
-					// Precisa registrar o ponteiro pra bloco direto
-					int new_data_block = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-					if(new_data_block == NOT_FOUND) return failed("No space in disk for another entry block.");
-					else if (new_data_block < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-
-					write_block(
-						 new_data_block,
-						 buf,
-						 map->sector_key*SECTOR_SIZE,
-						 dentry_size);
-
-					printf("BM Blocks Occ - Registra ponteiro pra bloco direto (new_record2)\n");
-					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-					dirnode->bytesFileSize += dentry_size;
-					dirnode->blocksFileSize += 1;
-					dirnode->dataPtr[current_blocks] = new_data_block;
-					rt->total_entries++;
-
-					if (update_inode(0, *dirnode)) {
-						//printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-
-					allocated = true;
-
-				}
-
-			} else if (map->indirection_level == 1) {
-				if(map->data_block > INVALID){
-					// TINHA BLOCO ALOCADO COM ESPACO LIVRE
-					write_block(
-						 map->data_block,
-						 buf,
-						 map->sector_key*SECTOR_SIZE+map->sector_shift*sizeof(T_RECORD),
-						 dentry_size);
-
-					dirnode->bytesFileSize += dentry_size;
-					rt->total_entries++;
-
-					if (update_inode(0, *dirnode)) {
-						//printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-					allocated = true;
-
-				} else {
-					// BLOCK NOT FOUND.
-					DWORD new_data_block = (DWORD)next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-
-					if(new_data_block == NOT_FOUND) return failed("No space in disk for another entry block.");
-					else if (new_data_block < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-
-					printf("BM Blocks Occ - Bloco indireto (new_record2)\n");
-					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-
-					if (dirnode->singleIndPtr == INVALID) {
-						// alloc new index block with pointers to entry blocks.
-						int bloco_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-						if(bloco_indices == NOT_FOUND) return failed("No space in disk for another index block.");
-						else if (bloco_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-
-						if(write_block(bloco_indices, (BYTE*)&new_data_block, 0, sizeof(DWORD))) {
-								//printf("Map function failed to allocate block\n");
-								free(buf);
-								return -1;
-						}
-						//printf("block indexes %d\n", bloco_indices);
-						printf("BM Blocks Occ - Registra bloco indices (new_record2)\n");
-						set_bitmap_index(BITMAP_BLOCKS, bloco_indices, BIT_OCCUPIED);
-						dirnode->singleIndPtr = bloco_indices;
-
-						write_block(
-							new_data_block,
-							buf,
-							0,
-							dentry_size
-						);
-
-						dirnode->bytesFileSize += dentry_size;
-						dirnode->blocksFileSize += 1;
-						rt->total_entries++;
-
-						allocated = true;
-
-						if (update_inode(0, *dirnode)) {
-							//printf("Couldn't save the directory inode\n");
-							free(buf);
-							return -1;
-						}
-
-					} else if (dirnode->singleIndPtr > INVALID) {
-						write_block(
-							 new_data_block,
-							 buf,
-							 map->sector_key*SECTOR_SIZE+map->sector_shift*sizeof(T_RECORD),
-							 dentry_size
-						);
-						printf("BM Blocks Occ - Registra no bloco de indices (new_record2)\n");
-						set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-						dirnode->bytesFileSize += dentry_size;
-						dirnode->blocksFileSize += 1;
-						write_block(
-							dirnode->singleIndPtr,
-							(BYTE*)&new_data_block,
-							((map->single_pointer_index % mounted->pointers_per_block)*sizeof(DWORD)),
-							sizeof(DWORD));
-						rt->total_entries++;
-
-						if (update_inode(0, *dirnode)) {
-							//printf("Couldn't save the directory inode\n");
-							free(buf);
-							return -1;
-						}
-						allocated = true;
-					}
-				}
-
-		}
-		else if (map->indirection_level == 2){
-			//return -1;
-			printf("[NEWREC] Entrou indirecao dupla\n");
-
-			if(map->data_block > INVALID) {
-				// TINHA BLOCO ALOCADO COM ESPACO LIVRE
-				printf("[NEWREC] Nao precisa alocar nada\n");
-				write_block(
-					 map->data_block,
-					 buf,
-					 map->sector_key*SECTOR_SIZE+map->sector_shift,
-					 dentry_size);
-
-				dirnode->bytesFileSize += dentry_size;
-				rt->total_entries++;
-				if (update_inode(0, *dirnode)) {
-					//printf("Couldn't save the directory inode\n");
-					free(buf);
-					return -1;
-				}
-				allocated = true;
-
-			} else {
-				// BLOCK NOT FOUND.
-				int new_data_block = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-				if(new_data_block == NOT_FOUND) return failed("No space in disk for another entry block.");
-				else if (new_data_block < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-				set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-
-
-				if(dirnode->doubleIndPtr == INVALID) {
-					printf("[NEWREC] Alloc double \n");
-
-					int bloco_2_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-					if(bloco_2_indices == NOT_FOUND) return failed("No space in disk for another index block.");
-					else if (bloco_2_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-					set_bitmap_index(BITMAP_BLOCKS, bloco_2_indices, BIT_OCCUPIED);
-
-					int bloco_1_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-					if(bloco_1_indices == NOT_FOUND) return failed("No space in disk for another index block.");
-					else if (bloco_1_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
-
-
-					// write tudo isso
-					write_block(new_data_block,buf,0,dentry_size);
-
-					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-					dirnode->bytesFileSize += dentry_size;
-					dirnode->blocksFileSize += 1;
-					rt->total_entries++;
-
-					allocated = true;
-					if (update_inode(0, *dirnode)) {
-						//printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-
-					 // ESCREVE UM BLOCO DE IND DUPLA com um unico ponteiro para o simples
-
-					write_block(bloco_2_indices,(BYTE*)&bloco_1_indices,0,DATA_PTR_SIZE_BYTES);
-
-					set_bitmap_index(BITMAP_BLOCKS, bloco_2_indices, BIT_OCCUPIED);
-					dirnode->doubleIndPtr = (DWORD)bloco_2_indices;
-
-					 // Agora o BLOCO IND SIMPLES do DUPLO recebe ponteiro para o novo bloco de entradas.
-					write_block(bloco_1_indices, (BYTE*)&new_data_block,0,DATA_PTR_SIZE_BYTES);
-					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
-					if (update_inode(0, *dirnode)) {
-						printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-
-
-				} else if(map->single_pointer_to_block == INVALID) {
-
-					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-
-
-					int bloco_1_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-					if(bloco_1_indices == NOT_FOUND) return failed("No space in disk for another index block.");
-					else if (bloco_1_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
-
-
-					write_block(new_data_block,buf, 0,dentry_size);
-					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-					dirnode->bytesFileSize += dentry_size;
-					dirnode->blocksFileSize += 1;
-					rt->total_entries++;
-					allocated = true;
-					if (update_inode(0, *dirnode)) {
-						printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-
-					write_block(bloco_1_indices,(BYTE*)&new_data_block,0,DATA_PTR_SIZE_BYTES);
-					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
-
-					write_block(dirnode->doubleIndPtr,(BYTE*)&bloco_1_indices,0,DATA_PTR_SIZE_BYTES);
-
-				} else if (map->single_pointer_to_block != INVALID) {
-
-					write_block(new_data_block, buf, 0,dentry_size);
-
-				 	set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
-		 		 	dirnode->bytesFileSize += dentry_size;
-		 		 	dirnode->blocksFileSize += 1;
-					rt->total_entries++;
-					allocated = true;
-					if (update_inode(0, *dirnode)) {
-						printf("Couldn't save the directory inode\n");
-						free(buf);
-						return -1;
-					}
-
-					write_block(map->single_pointer_to_block,(BYTE*)((map->single_pointer_index % mounted->pointers_per_block)*sizeof(DWORD)),
-							 map->sector_key*SECTOR_SIZE+map->sector_shift,DATA_PTR_SIZE_BYTES);
-					}
-				}
-			}
-		}
-		my_entry_index++;
-	}
-
-	free(map);
-	free(buf);
-	free(dummy);
-
-
-	if (allocated) return SUCCESS;
-
-	return FAILED;
-}
-
-int new_record(T_RECORD* rec){
-	if (init() != SUCCESS) return failed("Failed to initialize");
-	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_loaded()) return failed("Directory must be opened.");
-	if (rec == NULL) return failed("Bad record");
-
-	T_DIRECTORY* rt = mounted->root;
-	T_INODE* dirnode = rt->inode;
-	DWORD dentry_size = sizeof(T_RECORD);
-	DWORD block_size = mounted->superblock->blockSize * SECTOR_SIZE;
-
-	DWORD current_blocks = dirnode->blocksFileSize;
-	DWORD current_bytes = dirnode->bytesFileSize;
-
-	//se terminar o loop sem not found achar o primeiro INVALID e criar index block ali
-
-	BYTE* buf = (BYTE*) malloc(sizeof(BYTE)*dentry_size);
-	memcpy((void*)buf, (void*)rec, dentry_size);
-
-// versao original semi abortada
-	if (current_bytes % block_size == 0) {
-		// New block of entries required.
-		int data_block = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-		if(data_block == NOT_FOUND) return failed("No space in disk for another entry block.");
-		else if (data_block < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-
-		if (current_blocks+1 <= 2 ) {
-			// allocate new block at dataPtr[current_blocks]
-			write_block(data_block, buf, 0, dentry_size);
-			set_bitmap_index(BITMAP_BLOCKS, data_block, BIT_OCCUPIED);
-			dirnode->bytesFileSize += dentry_size;
-			dirnode->blocksFileSize += 1;
-			dirnode->dataPtr[current_blocks] = data_block;
-			rt->total_entries++;
-
-			if (update_inode(0, *dirnode)) {
-				//printf("Couldn't save the directory inode\n");
-				free(buf);
-				return -1;
-			}
-
-		}
-		else if (current_blocks+1 <= 2 + mounted->pointers_per_block) {
-
-			// check whether single indirect has been allocated.
-			if (dirnode->singleIndPtr == INVALID) {
-				// alloc new index block with pointers to entry blocks.
-				int bloco_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-				if(bloco_indices == NOT_FOUND) return failed("No space in disk for another index block.");
-				else if (bloco_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
-
-				BYTE* pointer = DWORD_to_BYTE(data_block, sizeof(DWORD));
-				write_block(bloco_indices, pointer, 0, sizeof(DWORD));
-				set_bitmap_index(BITMAP_BLOCKS, bloco_indices, BIT_OCCUPIED);
-				dirnode->singleIndPtr = bloco_indices;
-
-				write_block(data_block, buf, 0, dentry_size);
-				set_bitmap_index(BITMAP_BLOCKS, data_block, BIT_OCCUPIED);
-				dirnode->bytesFileSize += dentry_size;
-				dirnode->blocksFileSize += 1;
-				rt->total_entries++;
-				if (update_inode(0, *dirnode)) {
-					//printf("Couldn't save the directory inode\n");
-					free(buf);
-					return -1;
-				}
-
-			}
-			// check whether there is room in the single indirection pointers for a new block.
-			else if (current_blocks+1 <= 2 + mounted->pointers_per_block*(1 + mounted->pointers_per_block)) {
-				// if valid index block, there must be some pointer available.
-				//DWORD offset = parara find first pointer
-				//write_block(dirnode->singleIndPtr, data_block, )
-				;
-			} else {
-				return -1; // No space
-			}
-
-		}
-	}
-	free(buf);
-	return 0;
 }
 
 int new_file(char* filename, T_INODE** inode){
@@ -2705,13 +2285,11 @@ int readdir2 (DIRENT2 *dentry) {
 	strcpy(dentry->name, "\0");
 	dentry->fileSize = 0;
 
-	MAP* dummymap = blank_map();
 	while(rec->TypeVal == 0x00) {
 		if (mounted->root->entry_index >= mounted->root->total_entries) {
 			//printf("Reached end of dir\n");
 			free(rec);
 			free(inode);
-			free(dummymap);
 			return -1;
 		}
 
@@ -2721,7 +2299,6 @@ int readdir2 (DIRENT2 *dentry) {
 			//printf("Couldn't load inode\n");
 			free(rec);
 			free(inode);
-			free(dummymap);
 			return -1;
 		}
 		//printf("[READDIR] inodeNumber: %d\n", rec->inodeNumber);
@@ -2734,7 +2311,6 @@ int readdir2 (DIRENT2 *dentry) {
 
 	free(rec);
 	free(inode);
-	free(dummymap);
 
 	return SUCCESS;
 }
@@ -2841,7 +2417,6 @@ int sln2 (char *linkname, char *filename) {
 	}
 
 	if(new_entry(registro) <= NOT_FOUND){
-	//if(new_record2(registro) != SUCCESS ){
 
 		if(set_bitmap_index(BITMAP_INODES, indice_inode, BIT_FREE) != SUCCESS)
 			return failed("Failed to save rec + UNset bitmap node");

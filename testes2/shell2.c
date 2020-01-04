@@ -593,7 +593,7 @@ void cmdLs(void) {
 
     // Coloca diretorio na tela
     DIRENT2 dentry;
-		int ii;
+		int ii = 0;
     while ( readdir2(&dentry) == 0 ) {
         printf ("%d|%c %8u %s\n", ii,(dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
 				ii++;
