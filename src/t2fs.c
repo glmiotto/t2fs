@@ -1748,19 +1748,19 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 
 			// =-=-=-= Allocate double indirection block =-=-=-= //
 			DWORD new_double_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[DATABLOCK] Next double indirection block bit: %d\n", new_double_index);
+			printf("[DATABLOCK] 0Next double indirection block bit: %d\n", new_double_index);
 			if(new_double_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_double_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Allocate single indirection block =-=-=-= //
 			DWORD new_single_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[DATABLOCK] Next single indirection block bit: %d\n", new_single_index);
+			printf("[DATABLOCK] 0Next single indirection block bit: %d\n", new_single_index);
 			if(new_single_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_single_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Store pointer for single block in double block =-=-=-= //
 			if(write_block(new_double_index, (BYTE*)&new_single_index, 0, DATA_PTR_SIZE_BYTES) != SUCCESS)
-					return failed("[DATABLOCK] failed to write block inode indir");
+					return failed("[DATABLOCK] 0failed to write block inode indir");
 
 			// =-=-=-= Store indirection + update inode =-=-=-= //
 			file->inode->doubleIndPtr = new_double_index;
@@ -1775,22 +1775,31 @@ int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index) 
 		BYTE* sector_buffer = alloc_sector();
 		DWORD sector_offset = mounted->mbr_data->initial_sector + double_indirection_block * mounted->superblock->blockSize;
 		DWORD sector_in_block = (cur_block_number-limit_single_indirection)/(mounted->pointers_per_block*pointers_per_sector);
-		DWORD shift_in_sector = (cur_block_number-limit_single_indirection)%(mounted->pointers_per_block*pointers_per_sector);
-
+		//DWORD shift_in_sector = (cur_block_number-limit_single_indirection)%(mounted->pointers_per_block*pointers_per_sector);
+		DWORD pointer_index_in_double = (cur_block_number-limit_single_indirection)/mounted->pointers_per_block;
+		sector_in_block = pointer_index_in_double / pointers_per_sector;
 		if (read_sector(sector_offset + sector_in_block, sector_buffer) != SUCCESS) {return failed("[GetDBI] Failed to read sector 1");}
-		DWORD single_indirection_block = (DWORD)sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES];
-
+		DWORD single_indirection_block = (DWORD)sector_buffer[pointer_index_in_double*DATA_PTR_SIZE_BYTES];
+		printf("cur_block_number: %d\n",cur_block_number);
+		printf("[] Ptr in sector: %d | Address in buffer %d\n", pointer_index_in_double, pointer_index_in_double*DATA_PTR_SIZE_BYTES);
+		printf("[] DOUBLE BLOCK sector buffer: \n");
+		int iii;
+		for (iii=0;iii<256;iii=iii+4) {
+			printf("%d ",sector_buffer[iii]);
+			//if(iii%4==0) printf(" ");
+		}
+		printf("\n");
 		if (single_indirection_block == INVALID) {
 
 			// =-=-=-= Allocate single indirection block =-=-=-= //
 			DWORD new_single_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[DATABLOCK] Next single indirection block bit: %d\n", new_single_index);
+			printf("[DATABLOCK] 1Next single indirection block bit: %d\n", new_single_index);
 			if(new_single_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_single_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
 			// =-=-=-= Store pointer for single block in double block =-=-=-= //
-			if(write_block(double_indirection_block, (BYTE*)&new_single_index, sector_in_block*SECTOR_SIZE+shift_in_sector*DATA_PTR_SIZE_BYTES, DATA_PTR_SIZE_BYTES) != SUCCESS)
-					return failed("[DATABLOCK] failed to write block inode indir");
+			if(write_block(double_indirection_block, (BYTE*)&new_single_index, sector_in_block*SECTOR_SIZE+pointer_index_in_double*DATA_PTR_SIZE_BYTES, DATA_PTR_SIZE_BYTES) != SUCCESS)
+					return failed("[DATABLOCK] 1failed to write block inode indir");
 
 			single_indirection_block = new_single_index;
 		}
@@ -1858,12 +1867,13 @@ int get_data_block_index(T_FOPEN* file, DWORD cur_block_number) {
 		 //each pointer in double connects to "pointers_per_block" datablocks
 		 //each sector in double controls pointers_per_block*pointers_per_sector
 		 DWORD sector_in_block = (cur_block_number-limit_single_indirection)/(mounted->pointers_per_block*pointers_per_sector);
-		 DWORD shift_in_sector = (cur_block_number-limit_single_indirection)%(mounted->pointers_per_block*pointers_per_sector);
-
+		 //DWORD shift_in_sector = (cur_block_number-limit_single_indirection)%(mounted->pointers_per_block*pointers_per_sector);
+		 DWORD pointer_index_in_double = (cur_block_number-limit_single_indirection)/mounted->pointers_per_block;
+		 sector_in_block = pointer_index_in_double / pointers_per_sector;
 		 if (read_sector(sector_offset + sector_in_block, sector_buffer) != SUCCESS) {
 			 return failed("[GetDBI] Failed to read sector 1");
 		 }
-		 DWORD single_indirection_block = (DWORD)sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES];
+		 DWORD single_indirection_block = (DWORD)sector_buffer[pointer_index_in_double*DATA_PTR_SIZE_BYTES];
 
 		 if (single_indirection_block == INVALID) {
 			 printf("[GetDBI] singleptr value invalid\n");
@@ -1879,6 +1889,14 @@ int get_data_block_index(T_FOPEN* file, DWORD cur_block_number) {
 		 }
 		 DWORD blockid = (DWORD)sector_buffer[(pointer_index_in_single%pointers_per_sector)*DATA_PTR_SIZE_BYTES];
 		 if (blockid == INVALID) {
+			 printf("Double indirect block number : %d\n", double_indirection_index);
+			 printf("Single indirect block number : %d\n", single_indirection_block);
+			 printf("Cur block number:%d | sector in block %d | pointer in block %d | pointer in sector %d |\n",
+		 cur_block_number, sector_in_block,pointer_index_in_single,(pointer_index_in_single%pointers_per_sector) );
+		 int ii;
+		 printf("Buffer\n");
+		 for(ii=0;ii<256; ii++) printf("%x ", sector_buffer[ii]);
+		 printf("\n");
 			 printf("[GetDBI] blockid value invalid\n");
 			 return INVALID;
 		 }
@@ -1919,7 +1937,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
  		// alloc more blocks + update inode
 		float new_bytes = f->current_pointer + size - current_max_capacity;
 		DWORD number_new_blocks = ceil(new_bytes/bytes_per_block);
-		printf("[WRITE2] NEW BYTES: %.2f NEW BLOCKS: %d\n",new_bytes,number_new_blocks );
+		//printf("[WRITE2] NEW BYTES: %.2f NEW BLOCKS: %d\n",new_bytes,number_new_blocks );
 		//printf("Number of new blocks %d\n",(int)number_new_blocks );
 		//printf("INode antes # blocos: %d\n", f->inode->blocksFileSize);
  		int i;
@@ -1931,13 +1949,13 @@ int write2 (FILE2 handle, char *buffer, int size) {
  		for(i=0; i< number_new_blocks; i++){
 			// printf("New block number: %d\n",i);
  			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[Write2] Encontrou block bitmap index: %d\n", indice);
+			//printf("[Write2] Encontrou block bitmap index: %d\n", indice);
  			if(indice < FIRST_VALID_BIT){
  				// printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
  				return failed("Write2: Failed to find enough free data blocks.");
  			}
  			else {
-				printf("[Write2] Ocupando block bitmap index: %d\n", indice);
+				//printf("[Write2] Ocupando block bitmap index: %d\n", indice);
  				if (set_bitmap_index(BITMAP_BLOCKS, indice, BIT_OCCUPIED) !=SUCCESS) return failed("[WRITE2]ALLOC-Failed set bit occ");
 	 			// printf("Inode number: %d \n", (int)f->inode_index);
  				if(insert_data_block_index(f, previous_block_file_size + i, indice) <= 0)
@@ -1958,6 +1976,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 			// printf("-0--cur_data_byte> %d\n", cur_data_byte);
 
  			cur_block_number = f->current_pointer / bytes_per_block;
+			//printf("[WRITE] Get data block- current block number: %d\n", cur_block_number);
  			cur_block_index = get_data_block_index(f, cur_block_number);
 
 			// printf("-11--cur_block_number> %d\n", cur_block_number);
