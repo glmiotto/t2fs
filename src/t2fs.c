@@ -907,9 +907,12 @@ int new_record2(T_RECORD* rec){
 
 		}
 		else if (map->indirection_level == 2){
-			return -1;
+			//return -1;
+			printf("[NEWREC] Entrou indirecao dupla\n");
+
 			if(map->data_block > INVALID) {
 				// TINHA BLOCO ALOCADO COM ESPACO LIVRE
+				printf("[NEWREC] Nao precisa alocar nada\n");
 				write_block(
 					 map->data_block,
 					 buf,
@@ -918,6 +921,11 @@ int new_record2(T_RECORD* rec){
 
 				dirnode->bytesFileSize += dentry_size;
 				rt->total_entries++;
+				if (update_inode(0, *dirnode)) {
+					//printf("Couldn't save the directory inode\n");
+					free(buf);
+					return -1;
+				}
 				allocated = true;
 
 			} else {
@@ -925,16 +933,22 @@ int new_record2(T_RECORD* rec){
 				int new_data_block = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 				if(new_data_block == NOT_FOUND) return failed("No space in disk for another entry block.");
 				else if (new_data_block < FIRST_VALID_BIT) return failed("Failed bitmap op.");
+				set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
 
 
 				if(dirnode->doubleIndPtr == INVALID) {
+					printf("[NEWREC] Alloc double \n");
 
 					int bloco_2_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 					if(bloco_2_indices == NOT_FOUND) return failed("No space in disk for another index block.");
 					else if (bloco_2_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
+					set_bitmap_index(BITMAP_BLOCKS, bloco_2_indices, BIT_OCCUPIED);
+
 					int bloco_1_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 					if(bloco_1_indices == NOT_FOUND) return failed("No space in disk for another index block.");
 					else if (bloco_1_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
+					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
+
 
 					// write tudo isso
 					write_block(new_data_block,buf,0,dentry_size);
@@ -945,22 +959,39 @@ int new_record2(T_RECORD* rec){
 					rt->total_entries++;
 
 					allocated = true;
+					if (update_inode(0, *dirnode)) {
+						//printf("Couldn't save the directory inode\n");
+						free(buf);
+						return -1;
+					}
 
 					 // ESCREVE UM BLOCO DE IND DUPLA com um unico ponteiro para o simples
 
-					write_block(bloco_2_indices,(BYTE*)&bloco_1_indices,0,sizeof(DWORD));
+					write_block(bloco_2_indices,(BYTE*)&bloco_1_indices,0,DATA_PTR_SIZE_BYTES);
 
 					set_bitmap_index(BITMAP_BLOCKS, bloco_2_indices, BIT_OCCUPIED);
 					dirnode->doubleIndPtr = (DWORD)bloco_2_indices;
 
 					 // Agora o BLOCO IND SIMPLES do DUPLO recebe ponteiro para o novo bloco de entradas.
-					write_block(bloco_1_indices, (BYTE*)&new_data_block,0,sizeof(DWORD));
+					write_block(bloco_1_indices, (BYTE*)&new_data_block,0,DATA_PTR_SIZE_BYTES);
 					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
+					if (update_inode(0, *dirnode)) {
+						printf("Couldn't save the directory inode\n");
+						free(buf);
+						return -1;
+					}
+
 
 				} else if(map->single_pointer_to_block == INVALID) {
+
+					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
+
+
 					int bloco_1_indices = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 					if(bloco_1_indices == NOT_FOUND) return failed("No space in disk for another index block.");
 					else if (bloco_1_indices < FIRST_VALID_BIT) return failed("Failed bitmap op.");
+					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
+
 
 					write_block(new_data_block,buf, 0,dentry_size);
 					set_bitmap_index(BITMAP_BLOCKS, new_data_block, BIT_OCCUPIED);
@@ -968,10 +999,16 @@ int new_record2(T_RECORD* rec){
 					dirnode->blocksFileSize += 1;
 					rt->total_entries++;
 					allocated = true;
-					write_block(bloco_1_indices,(BYTE*)&new_data_block,0,sizeof(DWORD));
+					if (update_inode(0, *dirnode)) {
+						printf("Couldn't save the directory inode\n");
+						free(buf);
+						return -1;
+					}
+
+					write_block(bloco_1_indices,(BYTE*)&new_data_block,0,DATA_PTR_SIZE_BYTES);
 					set_bitmap_index(BITMAP_BLOCKS, bloco_1_indices, BIT_OCCUPIED);
 
-					write_block(dirnode->doubleIndPtr,(BYTE*)&bloco_1_indices,0,sizeof(DWORD));
+					write_block(dirnode->doubleIndPtr,(BYTE*)&bloco_1_indices,0,DATA_PTR_SIZE_BYTES);
 
 				} else if (map->single_pointer_to_block != INVALID) {
 
@@ -982,8 +1019,14 @@ int new_record2(T_RECORD* rec){
 		 		 	dirnode->blocksFileSize += 1;
 					rt->total_entries++;
 					allocated = true;
+					if (update_inode(0, *dirnode)) {
+						printf("Couldn't save the directory inode\n");
+						free(buf);
+						return -1;
+					}
+
 					write_block(map->single_pointer_to_block,(BYTE*)((map->single_pointer_index % mounted->pointers_per_block)*sizeof(DWORD)),
-							 map->sector_key*SECTOR_SIZE+map->sector_shift,sizeof(DWORD));
+							 map->sector_key*SECTOR_SIZE+map->sector_shift,DATA_PTR_SIZE_BYTES);
 					}
 				}
 			}
@@ -994,6 +1037,7 @@ int new_record2(T_RECORD* rec){
 	free(map);
 	free(buf);
 	free(dummy);
+
 
 	if (allocated) return SUCCESS;
 
@@ -2190,6 +2234,8 @@ int find_entry(char* filename, T_RECORD** record) {
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
 	DWORD inner_index_block;
+	printf("[FIND ENTRY] Looking for %s in double\n", filename);
+	printf("[FIND ENTRY] Bloco de indices double: %d\n", index_block);
 
 	if(index_block > INVALID) {
 		// Valid index
@@ -2263,7 +2309,8 @@ int delete_entry(char* filename) {
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
 	DWORD inner_index_block;
-
+	printf("[DEL ENTRY] Looking for %s in double\n", filename);
+	printf("[DEL ENTRY] Bloco de indices double: %d\n", index_block);
 	if(index_block > INVALID) {
 		// Valid index
 		for(s=0; s < total_sects; s++){
@@ -2291,6 +2338,7 @@ int delete_indirect_entry(DWORD index_block, char* filename){
 	if(index_block < 1) return FAILED;
 	T_SUPERBLOCK* sb = mounted->superblock;
 
+	printf("[DEL ENTRY] Bloco de indices single: %d\n", index_block);
 	int i, s;
 	int total_sects = sb->blockSize;
 	DWORD offset = mounted->mbr_data->initial_sector+index_block * sb->blockSize;

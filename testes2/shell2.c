@@ -84,10 +84,10 @@ char helpFscp[]	  = "[src] [dst]  -> copy files: [src] -> [dst]"
 char helpFormat[] = "[part] [spb] -> format partition p with s sectors per block";
 char helpMount[]  = "[part]       -> mount partition p";
 char helpUmount[] = "             -> unmount actual partition";
-					
 
 
-	
+
+
 struct {
 	char name[20];
 	char *helpString;
@@ -98,7 +98,7 @@ struct {
 	{ "who", helpWho, cmdWho }, { "id", helpWho, cmdWho },
 	{ "dir", helpLs, cmdLs }, { "ls", helpLs, cmdLs },
 
-	
+
 	{ "open", helpOpen, cmdOpen },
 	{ "read", helpRead, cmdRead }, { "rd", helpRead, cmdRead },
 	{ "close", helpClose, cmdClose }, { "cl", helpClose, cmdClose },
@@ -106,15 +106,15 @@ struct {
 	{ "create", helpCreate, cmdCreate }, { "cr", helpCreate, cmdCreate },
 	{ "delete", helpDelete, cmdDelete }, { "del", helpDelete, cmdDelete },
 
-	
+
 	{ "sln", helpSln, cmdSln },
         { "hln", helpHln, cmdHln },
 
         { "format", helpFormat, cmdFormat },
         { "mount", helpMount, cmdMount },
         { "umount", helpUmount, cmdUmount },
-	
-	
+
+
 	{ "cp", helpCopy, cmdCp },
 	{ "fscp", helpFscp, cmdFscp },
 	{ "fim", helpExit, NULL }
@@ -162,7 +162,7 @@ int main()
 }
 
 /**
-Encerra a operação do teste
+Encerra a operaï¿½ï¿½o do teste
 */
 void cmdExit(void) {
     printf ("bye, bye!\n");
@@ -174,7 +174,7 @@ Informa os comandos aceitos pelo programa de teste
 void cmdMan(void) {
 	int i;
 	char *token = strtok(NULL," \t");
-	
+
 	// man sem nome de comando
 	if (token==NULL) {
 		for (i=0; strcmp(cmdList[i].name,"fim")!=0; i++) {
@@ -184,19 +184,19 @@ void cmdMan(void) {
 		printf ("\n");
 		return;
 	}
-	
+
 	// man com nome de comando
 	for (i=0; strcmp(cmdList[i].name,"fim")!=0; i++) {
 		if (strcmp(cmdList[i].name,token)==0) {
 			printf ("%-10s %s\n", cmdList[i].name, cmdList[i].helpString);
 		}
 	}
-	
+
 
 }
-	
+
 /**
-Chama da função identify2 da biblioteca e coloca o string de retorno na tela
+Chama da funï¿½ï¿½o identify2 da biblioteca e coloca o string de retorno na tela
 */
 void cmdWho(void) {
     char name[256];
@@ -210,7 +210,7 @@ void cmdWho(void) {
 
 /**
 Copia arquivo dentro do T2FS
-Os parametros são:
+Os parametros sï¿½o:
     primeiro parametro => arquivo origem
     segundo parametro  => arquivo destino
 */
@@ -229,7 +229,7 @@ void cmdCp(void) {
         printf ("Open source file error: %d\n", hSrc);
         return;
     }
-    // Cria o arquivo de destino, que será resetado se existir
+    // Cria o arquivo de destino, que serï¿½ resetado se existir
     FILE2 hDst = create2 (dst);
     if (hDst<0) {
         close2(hSrc);
@@ -250,15 +250,15 @@ void cmdCp(void) {
 
 /**
 Copia arquivo de um sistema de arquivos para o outro
-Os parametros são:
-    primeiro parametro => direção da copia
+Os parametros sï¿½o:
+    primeiro parametro => direï¿½ï¿½o da copia
         -t copiar para o T2FS
         -f copiar para o FS do host
     segundo parametro => arquivo origem
     terceiro parametro  => arquivo destino
 */
 void cmdFscp(void) {
-    // Pega a direção e os nomes dos arquivos origem e destion
+    // Pega a direï¿½ï¿½o e os nomes dos arquivos origem e destion
     char *direcao = strtok(NULL, " \t");
     char *src = strtok(NULL," \t");
     char *dst = strtok(NULL," \t");
@@ -266,7 +266,7 @@ void cmdFscp(void) {
         printf ("Missing parameter\n");
         return;
     }
-    // Valida direção
+    // Valida direï¿½ï¿½o
     if (strncmp(direcao, "-t", 2)==0) {
         // src == host
         // dst == T2FS
@@ -277,7 +277,7 @@ void cmdFscp(void) {
             printf ("Open source file error\n");
             return;
         }
-        // Cria o arquivo de destino, que será resetado se existir
+        // Cria o arquivo de destino, que serï¿½ resetado se existir
         FILE2 hDst = create2 (dst);
         if (hDst<0) {
             fclose(hSrc);
@@ -303,7 +303,7 @@ void cmdFscp(void) {
             printf ("Open source file error: %d\n", hSrc);
             return;
         }
-        // Cria o arquivo de destino, que será resetado se existir
+        // Cria o arquivo de destino, que serï¿½ resetado se existir
         FILE *hDst = fopen(dst, "w+");
         if (hDst==NULL) {
             printf ("Open destination file error\n");
@@ -328,7 +328,7 @@ void cmdFscp(void) {
 
 /**
 Cria o arquivo informado no parametro
-Retorna eventual sinalização de erro
+Retorna eventual sinalizaï¿½ï¿½o de erro
 Retorna o HANDLE do arquivo criado
 */
 void cmdCreate(void) {
@@ -351,7 +351,7 @@ void cmdCreate(void) {
 
 /**
 Apaga o arquivo informado no parametro
-Retorna eventual sinalização de erro
+Retorna eventual sinalizaï¿½ï¿½o de erro
 */
 void cmdDelete(void) {
 
@@ -372,7 +372,7 @@ void cmdDelete(void) {
 
 /**
 Abre o arquivo informado no parametro [0]
-Retorna sinalização de erro
+Retorna sinalizaï¿½ï¿½o de erro
 Retorna HANDLE do arquivo retornado
 */
 void cmdOpen(void) {
@@ -394,9 +394,9 @@ void cmdOpen(void) {
 }
 
 /**
-Fecha o arquivo cujo handle é o parametro
-Retorna sinalização de erro
-Retorna mensagem de operação completada
+Fecha o arquivo cujo handle ï¿½ o parametro
+Retorna sinalizaï¿½ï¿½o de erro
+Retorna mensagem de operaï¿½ï¿½o completada
 */
 void cmdClose(void) {
     FILE2 handle;
@@ -469,7 +469,7 @@ void cmdRead(void) {
     // show bytes read
     dump(buffer, err);
     printf ("%d bytes read from file-handle %d\n", err, handle);
-    
+
     free(buffer);
 }
 
@@ -485,7 +485,7 @@ void cmdSln(void) {
         return;
     }
 	linkname = token;
-	
+
     // get second parameter => pathname
     token = strtok(NULL," \t");
     if (token==NULL) {
@@ -515,7 +515,7 @@ void cmdHln(void) {
         return;
     }
 	linkname = token;
-	
+
     // get second parameter => pathname
     token = strtok(NULL," \t");
     if (token==NULL) {
@@ -583,7 +583,7 @@ void cmdLs(void) {
 //        return;
 //    }
 
-    // Abre o diretório pedido
+    // Abre o diretï¿½rio pedido
     int d;
     d = opendir2();
     if (d<0) {
@@ -593,9 +593,11 @@ void cmdLs(void) {
 
     // Coloca diretorio na tela
     DIRENT2 dentry;
+		int ii;
     while ( readdir2(&dentry) == 0 ) {
-        printf ("%c %8u %s\n", (dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
-    }
+        printf ("%d|%c %8u %s\n", ii,(dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
+				ii++;
+		}
 
     closedir2();
 
@@ -638,7 +640,7 @@ void cmdFormat(void) {
     }
 
     printf ("Format complete -> partition %d sectors per block %d\n", partition, sectorPerBlock);
-    
+
 }
 
 //comando mount
@@ -666,7 +668,7 @@ void cmdMount(void) {
     }
 
     printf ("Root FS mounted on partition %d\n", partition);
-    
+
 }
 
 // comando umount
@@ -678,6 +680,3 @@ void cmdUmount(void) {
     }
     printf ("Unmount done\n");
 }
-
-
-
