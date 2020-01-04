@@ -203,6 +203,7 @@ int find_entry(char* filename, T_RECORD** record);
 int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record);
 int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record);
 
+int new_entry(T_RECORD* record);
 
 int delete_entry(char* filename);
 int delete_indirect_entry(DWORD index_block, char* filename);
@@ -223,8 +224,8 @@ int iterate_singlePtr(DWORD indirection_block);
 int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block);
 
 int allocate_new_indexes(T_INODE* file_inode, DWORD* indexes, DWORD num_new_blocks);
-int get_data_block_index(T_FOPEN* file, DWORD cur_block_number);
-int insert_data_block_index(T_FOPEN* file, DWORD cur_block_number, DWORD index);
+int get_data_block_index(T_INODE* inode, DWORD cur_block_number);
+int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_number, DWORD index);
 /* **************************************************************** */
 
 /*-----------------------------------------------------------------------------
