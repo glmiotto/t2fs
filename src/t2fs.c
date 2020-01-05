@@ -731,7 +731,6 @@ int next_entry(int sequential_index, T_RECORD* out_record) {
 		return failed("[NEXT ENTRY] Failed readblock.");}
 
 	memcpy(out_record, buffer, record_size);
-
 	return 1; // Success
 }
 
@@ -739,10 +738,6 @@ int next_entry(int sequential_index, T_RECORD* out_record) {
 int new_entry(T_RECORD* entry ){
 
 	// =-=-=-=-=-=-=-=-= Validation + variables =-=-=-=-=-=-=-=-= //
-
-	if (init() != SUCCESS) return failed("Failed to initialize");
-	if (!is_mounted()) return failed("No partition mounted.");
-	if (!is_root_loaded()) return failed("Directory must be opened.");
 	if (entry == NULL) return failed("[NEW ENTRY] Null record");
 
 	T_DIRECTORY* rt = mounted->root;
@@ -2085,181 +2080,13 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 				// achou
 				memcpy(&(buffer[e*entry_size]), blank , sizeof(T_RECORD));
 				if(write_sector(offset + sector, buffer) != SUCCESS) return(failed("Failed a write sector"));
+				mounted->root->inode->bytesFileSize -= sizeof(T_RECORD);
+				if(update_inode(0, mounted->root->inode) != SUCCESS) print("[DEL ENTRY] Could not update dirnode.") ;
 				return 1;
 			}
 		}
 	}
 	return NOT_FOUND;
-}
-
-int map_index_to_record(DWORD index, T_RECORD** record, MAP* map){
-	if(!is_mounted()) 	return(failed("MITR no partition mounted yet."));
-	if(!is_root_loaded()) return(failed("MITR root not loaded"));
-	T_DIRECTORY*  rt = mounted->root;
-	T_SUPERBLOCK* sb = mounted->superblock;
-	if(index < 0) 							 		 return(failed("MITB bad negative index"));
-	if(index >= rt->max_entries) 		 return(failed("MITB bad positive index"));
-
-	DWORD eps = mounted->entries_per_block / sb->blockSize;
-	DWORD sector_shift = (index % mounted->entries_per_block) % eps;
-
-	BYTE* buffer = alloc_sector();
-	int block = map_index_to_sector(index, mounted->entries_per_block, &buffer, map);
-	if(block <= NOT_FOUND) return block; // failed ou inexistente
-
-	free(*record); *record = alloc_record(1);
-
-	map->buffer_index = map->sector_shift*ENTRY_SIZE_BYTES;
-	memcpy((void*)*record, (void*)&(buffer[sector_shift*ENTRY_SIZE_BYTES]), sizeof(T_RECORD));
-
-	free(buffer);
-
-	return (*record)->TypeVal;
-}
-
-// This mapping function uses
-// the number of the entry or the position byte within a file
-// to map straight to the --sector? blockid?-- where the content is, from the inode. TODO: answer
-int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE** buffer, MAP* map ) {
-
-	if(!is_mounted()) 	return(failed("MITB no partition mounted yet."));
-	if(!is_root_loaded()) return(failed("MITB root not loaded"));
-	T_DIRECTORY*  rt = mounted->root;
-	T_SUPERBLOCK* sb = mounted->superblock;
-
-	DWORD epb = units_per_block;
-	DWORD eps = epb / sb->blockSize;
-	DWORD ppb = mounted->pointers_per_block;
-	DWORD pps = ppb / sb->blockSize;
-
-	DWORD block_key 	 = index / epb;
-	DWORD sector_key 	 = (index % epb) / eps;
-	DWORD sector_shift = (index % epb) % eps;
-	map->block_key = block_key;
-	map->sector_key= sector_key;
-	map->sector_shift = sector_shift;
-
-	DWORD entry_block, index_block, offset;
-	free(*buffer); *buffer = alloc_sector();
-
-	//printf("[MAP_INDEX_2REC] index inode %d\n", index);
-	//printf("[MAP_INDEX_2REC] Bloco da entrada: %d\n", block_key);
-	//printf("[MAP_INDEX_2REC] Setor dentro do bloco: %d\n", sector_key);
-	//printf("[MAP_INDEX_2REC] Entrada dentro do setor: %d\n", sector_shift);
-
-	// DIRECT
-	if(block_key < 2){
-		entry_block = rt->inode->dataPtr[block_key];
-		map->data_block = entry_block;
-		map->indirection_level = 0;
-	}
-
-	// SINGLE INDIRECTION
-	else if (block_key < 2+ppb){
-		index_block = rt->inode->singleIndPtr;
-		map->single_pointer_to_block = index_block;
-		map->indirection_level = 1;
-		map->data_block = 0;
-
-		if(index_block <= INVALID) return NOT_FOUND;
-
-		offset = mounted->mbr_data->initial_sector + index_block * sb->blockSize;
-
-		DWORD pointer_index = block_key - 2;
-		DWORD pointer_sector = pointer_index / pps;
-		map->single_pointer_index  = pointer_index;
-		map->single_pointer_sector = pointer_sector;
-		if(debugging) {
-			printf("SINGLE|| Entry: %u \n", index);
-			printf("NroPtr: %u | ", pointer_index);
-			printf("SetorPtr %u | ItemPtr %u | ",pointer_sector,pointer_index%pps);
-			printf("Vou ler offset: %u e setor %u\n", offset,pointer_sector);
-		}
-		map->single_sector_address = offset+pointer_sector;
-
-		if(read_sector(offset+pointer_sector, *buffer) != SUCCESS)
-			return(failed("Womp2 womp"));
-
-		entry_block = *( (DWORD*)&( (*buffer)[(pointer_index % pps)*DATA_PTR_SIZE_BYTES]));
-		map->single_buffer_index = (pointer_index % pps)*DATA_PTR_SIZE_BYTES;
-
-		map->data_block = entry_block;
-
-	}
-	// DOUBLE INDIRECTION
-	else {
-		DWORD double_index_block = rt->inode->doubleIndPtr;
-		map->double_pointer_to_block = double_index_block;
-		map->indirection_level = 2;
-
-		if(double_index_block <= INVALID) return NOT_FOUND;
-
-		offset = mounted->mbr_data->initial_sector + double_index_block * sb->blockSize;
-		DWORD pointer_index  = block_key - 2 - ppb;
-		DWORD pointer_sector_dind = pointer_index/ppb/pps;
-
-		map->double_pointer_index = pointer_index;
-		map->double_pointer_sector = pointer_sector_dind;
-
-		if(debugging){
-			printf("DOUBLE||| Entry: %u \n", index);
-			printf("NroPtrD: %u | ", pointer_index/ppb);
-			printf("SetorPtrD %u | ItemPtrD %u \n",pointer_sector_dind,pointer_sector_dind % pps);
-			printf("Vou ler offset: %u e setor %u\n", offset, pointer_sector_dind);
-		}
-
-		if(read_sector(offset+pointer_sector_dind, *buffer) != SUCCESS)
-			return(failed("Womp3 womp"));
-
-		map->double_sector_address = offset+pointer_sector_dind;
-		index_block = *( (DWORD*)&( (*buffer)[((pointer_index/ppb) % pps)*DATA_PTR_SIZE_BYTES])) ;
-		map->double_buffer_index = ((pointer_index/ppb) % pps)*DATA_PTR_SIZE_BYTES;
-		map->single_pointer_to_block = index_block;
-
-		if(index_block <= INVALID) return NOT_FOUND;
-
-		offset = mounted->mbr_data->initial_sector + index_block * sb->blockSize;
-		pointer_index = block_key - 2 - ppb - pointer_sector_dind*pps; //*ppb*epb
-		DWORD pointer_sector = pointer_index / pps;
-		map->single_pointer_index  = pointer_index;
-		map->single_pointer_sector = pointer_sector;
-
-		if(debugging){
-			printf("NroPtrS: %u | ", pointer_index);
-			printf("SetorPtrS %u | ItemPtrS %u \n",pointer_sector, pointer_index% pps);
-			printf("Vou ler offset: %u e setor %u\n", offset, ((pointer_index%ppb) / pps));
-		}
-		if(read_sector(offset+((pointer_index%ppb) / pps), *buffer) != SUCCESS) return(failed("Womp4 womp"));
-
-		map->single_sector_address = offset+((pointer_index%ppb) / pps);
-		entry_block = *( (DWORD*)&( (*buffer)[(pointer_index% pps)*DATA_PTR_SIZE_BYTES]) ) ;
-		map->single_buffer_index = (pointer_index% pps)*DATA_PTR_SIZE_BYTES;
-		map->data_block = entry_block;
-	}
-
-	// READING SECTOR FROM FINAL BLOCK
-
-	if(entry_block <= INVALID) return NOT_FOUND;
-
-	// Offset in sectors
-	offset = mounted->mbr_data->initial_sector;
-	offset += (map->data_block*sb->blockSize);
-
-	if(debugging && map->indirection_level == 0){
-		printf("DIRECT| Entry: %u \n", index);
-		printf("Bloco: %u | ", block_key);
-		printf("Setor: %u | ", sector_key);
-		printf("Item: %u \n", sector_shift);
-		printf("Setor absoluto = %u\n", offset+sector_key);
-		printf("Vou ler offset: %u e setor %u\n", offset, sector_key);
-	}
-
-	map->sector_address = offset+sector_key;
-	//printf("\t--%d %d--\n", map->data_block, map->single_buffer_index);
-	if(map->data_block <= INVALID) return NOT_FOUND;
-	if(read_sector(offset+sector_key, *buffer) != SUCCESS) return(failed("WompLast womp"));
-
-	return map->data_block;
 }
 
 /*-----------------------------------------------------------------------------

@@ -209,9 +209,6 @@ int delete_entry(char* filename);
 int delete_indirect_entry(DWORD index_block, char* filename);
 int delete_entry_in_block(DWORD entry_block, char* filename);
 
-
-int map_index_to_sector(DWORD index, DWORD units_per_block, BYTE** buffer, MAP* map);
-int map_index_to_record(DWORD index, T_RECORD** record, MAP* map);
 // Bitmap
 int next_bitmap_index(int bitmap_handle, int bit_value);
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
