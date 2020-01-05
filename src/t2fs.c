@@ -167,6 +167,7 @@ int load_root(){
 	rt->inode = dir_node ;
 	rt->inode_index = ROOT_INODE;
 	rt->entry_index = DEFAULT_ENTRY;
+	rt->valid_entry_counter = 0;
 	rt->total_entries = dir_node->bytesFileSize/sizeof(T_RECORD);
 
 	// Maximum number of ENTRY BLOCKS the d-node can hold.
@@ -1718,6 +1719,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 
  	mounted->root->open = true;
  	mounted->root->entry_index = 0;
+	mounted->root->valid_entry_counter = 0;
  	return SUCCESS;
 }
 
@@ -2018,6 +2020,7 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 				memcpy(&(buffer[e*entry_size]), blank , entry_size);
 				if(write_sector(offset + sector, buffer) != SUCCESS) return(failed("Failed a write sector"));
 				mounted->root->inode->bytesFileSize -= entry_size;
+				mounted->root->total_entries--;
 				if(update_inode(0, *(mounted->root->inode)) != SUCCESS) print("[DEL ENTRY] Could not update dirnode.") ;
 				return 1;
 			}
@@ -2039,6 +2042,7 @@ int readdir2 (DIRENT2 *dentry) {
 	T_RECORD* rec = alloc_record(1);
 	T_INODE* inode = alloc_inode(1);
 	T_DIRECTORY* rt = mounted->root;
+	int return_code;
 
 	rec->TypeVal = 0x00;
 	dentry->fileType = 0x00;
@@ -2046,23 +2050,34 @@ int readdir2 (DIRENT2 *dentry) {
 	dentry->fileSize = 0;
 
 	while(rec->TypeVal == 0x00) {
-		if (rt->entry_index >= rt->total_entries) {
-			//printf("Reached end of dir\n");
+
+		if (rt->valid_entry_counter >= rt->total_entries || rt->entry_index >= rt->max_entries) {
+			//printf("1Valid entries so far: %d | Total valid: %d | Cur index: %d | Maximum: %d\n",
+			//rt->valid_entry_counter,rt->total_entries, rt->entry_index, rt->max_entries);
+			printf("Reached end of dir\n");
 			free(rec);
 			free(inode);
 			return -1;
 		}
 
-		if(next_entry(rt->entry_index, rec) <= NOT_FOUND) return FAILED;
-		if (rec->TypeVal != 0x00 && access_inode(rec->inodeNumber, inode)) {
-			printf("Couldn't load inode\n");
-			free(rec);
-			free(inode);
-			return -1;
+		return_code = next_entry(rt->entry_index, rec);
+		if(return_code < INVALID) return FAILED;
+		if(return_code > INVALID) {
+			if (rec->TypeVal != 0x00 && access_inode(rec->inodeNumber, inode)) {
+				printf("[READ DIR] Corrupted entry: couldn't load inode\n");
+				free(rec);
+				free(inode);
+				return -1;
+			}
 		}
-		//printf("[READDIR] inodeNumber: %d\n", rec->inodeNumber);
-		mounted->root->entry_index++;
+		// if return INVALID, then mapped to unallocated block
+		// but may have more entries in some other block or indirection level
+		// (continue iterating).
+		rt->entry_index++;
 	}
+
+	// Found a valid entry.
+	rt->valid_entry_counter++;
 
 	dentry->fileType = rec->TypeVal;
 	dentry->fileSize = inode->bytesFileSize;
@@ -2079,7 +2094,7 @@ Função:	Função usada para fechar um diretório.
 int closedir2 (void) {
 	if (init() != SUCCESS) return(failed("CloseDir: failed to initialize"));
 	if (!is_mounted()) return(failed("CloseDir: no partition mounted."));
-
+	update_inode(0, *(mounted->root->inode));
 	mounted->root->open = false;
 	return SUCCESS;
 }

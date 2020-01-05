@@ -71,6 +71,7 @@ typedef struct Directory{
 	DWORD     inode_index;
   T_RECORD* current_entry;
 	DWORD 		entry_index;
+	DWORD     valid_entry_counter;
   DWORD     total_entries;
   DWORD     max_entries;
   T_FOPEN   open_files[MAX_FILES_OPEN];
