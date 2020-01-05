@@ -1083,10 +1083,18 @@ FILE2 create2 (char *filename) {
 			printf("Filename exists and has multiple (hard) links. Cannot overwrite.\n");
 			return FAILED;
 		}
-		if(delete2(filename) != SUCCESS){
-			return failed("[CREATE] Failed to overwrite existing file.");
+
+		if(remove_file_content(inode) != SUCCESS){
+			return failed("[CREATE] Failed to erase existing file content.");
+		}
+		free(inode);
+		inode = blank_inode();
+		inode->RefCounter=1;
+		if(update_inode(record->inodeNumber, *inode) != SUCCESS) {
+			return failed("[CREATE] Failed to update inode after content erasure.");
 		}
 		printf("Filename exists. Contents erased.\n");
+		return open2(filename);
 	}
 
 	if(new_file(filename, &inode) != SUCCESS)
@@ -1189,17 +1197,16 @@ FILE2 open2 (char *filename) {
 	for(i=0; i < MAX_FILES_OPEN; i++){
 		// check if position is not occupied by another file
 		if(fopen[i].inode == NULL){
-
 			//printf("Adicionei arquivo na posicao: %d\n", i);
 			if(rec->TypeVal == TYPEVAL_LINK){
 
 				BYTE* buffer = alloc_sector();
-				if(read_sector(mounted->mbr_data->initial_sector
-							   + (mounted->superblock->blockSize)*inode->dataPtr[0], buffer) != SUCCESS) return FAILED;
+				if(read_block(inode->dataPtr[0], buffer, 0, 51)!= SUCCESS) return FAILED;
 				memcpy((void*)_filename, (void*)buffer, 51);
 
-				if (find_entry(_filename, &rec) != SUCCESS) return FAILED;
-				if (access_inode(rec->inodeNumber, inode) != SUCCESS) return FAILED;
+				return open2(_filename);
+				//if (find_entry(_filename, &rec) != SUCCESS) return FAILED;
+				//if (access_inode(rec->inodeNumber, inode) != SUCCESS) return FAILED;
 			}
 
 			fopen[i].record = rec;
@@ -2215,6 +2222,10 @@ int hln2(char *linkname, char *filename) {
 	T_INODE* inode = alloc_inode(1);
 	// abre inode do arquivo 'filename'
 	if(access_inode(indice_inode, inode) != SUCCESS) return FAILED;
+	if(record->TypeVal != TYPEVAL_REGULAR){
+		printf("Cannot establish hard link to symbolic file.\n");
+		return FAILED;
+	}
 	// apenas incrementa o contador de referencias
 	inode->RefCounter += 1;
 	update_inode(indice_inode, *inode);
