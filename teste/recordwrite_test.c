@@ -6,8 +6,7 @@
 #include <t2fs.h>
 #include <t2disk.h>
 
-int new_record2(T_RECORD* rec);
-MAP* blank_map();
+//int new_record2(T_RECORD* rec);
 
 extern T_MOUNTED* mounted;
 
@@ -15,20 +14,17 @@ int main() {
 	if(format2(0, 2)) {
 		printf("Error while formatting: NOT OK\n");
 	}
-
 	if (mount(0)) {
 		printf("Error while mounting: NOT OK\n");
 	}
 
 	printf("Opening dir: %s\n", opendir2() ? "NOT OK" : "OK");
 
-
-	int dentries = 300;
+	int dentries = 1300;
 	int offset = 0;
 
 	T_RECORD rec[dentries];
 	char names[dentries][51];
-	MAP* dummymap = blank_map();
 
 	int code = create2("original");
 
@@ -44,7 +40,7 @@ int main() {
 		// err = new_record2(&rec[i]);
 		//
 		// printf("Creating rec name %s - id %d: %s\n", rec[i].name, rec[i].TypeVal, err ? "NOT OK" : "OK");
-		printf("Creating rec name %s: return code %d\n", rec[i].name, err);
+		printf("Creating rec name %s: return %s\n", rec[i].name, , err ? "NOT OK" : "OK"));
 
 	}
 
@@ -68,8 +64,7 @@ int main() {
 	int d;
 	d = opendir2();
 	if (d<0) {
-			printf ("Open dir error: %d\n", d);
-			return;
+			printf("Open dir NOT OK: %d\n", d);
 	}
 
 	// Coloca diretorio na tela
@@ -87,15 +82,11 @@ int main() {
 		printf("Deleting record %d: %s\n", i+offset, delete_entry(rec[i].name) ? "NOT OK" : "OK");
 	}
 
+	printf("Total entries - %d : %s\n", mounted->root->total_entries, mounted->root->total_entries == 0 ? "OK" : "NOT OK");
 	printf("Closing dir: %s\n", closedir2() ? "NOT OK" : "OK");
-
 
 	if(umount()) {
 		printf("Error while unmounting 1: NOT OK\n");
 	}
-
-
-	free(dummymap);
-
 	return 0;
 }

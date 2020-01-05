@@ -264,7 +264,7 @@ int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
 
 void print_RECORD(T_RECORD* record){
 	if(record==NULL) {
-		//printf("Record is nullptr.");
+		printf("Record is nullptr.");
 		return;}
 	printf("===============================================\n");
 	printf("File name: %s\n", record->name);
@@ -635,20 +635,6 @@ int update_inode(DWORD index, T_INODE inode) {
 }
 
 /*-----------------------------------------------------------------------------*/
-BYTE* get_block(int sector, int offset, int n){
-	if(offset > SECTOR_SIZE)
-		return NULL;
-
-	BYTE* buffer = alloc_sector();
-	if(!read_sector(sector, buffer))
-		return NULL;
-
-	BYTE* block = (BYTE*)malloc(n);
-	memcpy( &block, &buffer, n);
-
-	return block;
-}
-/*-----------------------------------------------------------------------------*/
 // Next Bitmap Index:
 // Output ZERO if none of that bit value found in bitmap.
 // Output positive int index when found.
@@ -972,18 +958,6 @@ int remove_file_content(T_INODE* inode){
 	// percorre ponteiros de indirecao dupla, traduz ponteiro para posicao no bitmap de dados, zera posicoes no bitmap de dados
 	iterate_doublePtr(inode, inode->doubleIndPtr);
 	printf("[RemContent] Removed all file content from disk.\n");
-	return SUCCESS;
-}
-
-int remove_record(char* filename){
-
-	int superbloco_sector = mounted->mbr_data->initial_sector;
-
-	if(openBitmap2(superbloco_sector) != SUCCESS)
-		return FAILED;
-
-	// percorre blocos de dados do diretorio raiz buscando registro
-
 	return SUCCESS;
 }
 
