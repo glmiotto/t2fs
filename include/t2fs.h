@@ -106,9 +106,9 @@ typedef struct Mbr{
 } MBR;
 
 int init();
-int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block);
 int init_open_files();
 int calculate_checksum(T_SUPERBLOCK sb);
+int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block);
 int initialize_inode_area(T_SUPERBLOCK* sb, int partition);
 int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block);
 
@@ -125,16 +125,12 @@ boolean is_valid_filename(char* filename);
 
 // Conversion from/to little-endian unsigned chars
 DWORD to_int(BYTE* chars, int num_bytes);
-BYTE* DWORD_to_BYTE(DWORD value, int num_bytes);
 BYTE* WORD_to_BYTE(WORD value, int num_bytes);
 
 // Conversion disk<->logical structures
 int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb);
 int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode);
 int INODE_to_BYTE(T_INODE* inode, BYTE* bytes);
-int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry);
-int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes);
-int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry);
 
 /* Utils */
 int failed(char* msg);
@@ -150,45 +146,42 @@ T_RECORD* alloc_record(DWORD quantity);
 DIRENT2*  alloc_dentry(DWORD quantity);
 T_INODE*  blank_inode();
 T_RECORD* blank_record();
-DIRENT2*  blank_dentry();
 
 int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb);
 
 /* Index mapping & search */
 int get_data_block_index(T_INODE* inode, DWORD cur_block_number);
 int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_number, DWORD index);
-
 DWORD map_inode_to_sector(int inode_index);
-int access_inode(int inode_index, T_INODE* return_inode);
-int new_file(char* filename, T_INODE** inode);
 
+/* Disk operations */
+int access_inode(int inode_index, T_INODE* return_inode);
 int save_inode(DWORD index, T_INODE* inode);
 int update_inode(DWORD index, T_INODE inode);
 int save_superblock();
-
 int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size );
 int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int data_size );
 int wipe_block(DWORD block_index);
+int remove_file_content(T_INODE* inode);
+int remove_pointer_from_bitmap(DWORD number, WORD handle);
+int iterate_singlePtr(DWORD indirection_block);
+int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block);
 
-// Directory
+/* Bitmap operations */
+int next_bitmap_index(int bitmap_handle, int bit_value);
+int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
+
+/* Directory operations */
+int new_file(char* filename, T_INODE** inode);
+int new_entry(T_RECORD* record);
+
 int find_entry(char* filename, T_RECORD** record);
 int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record);
 int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record);
 
-int new_entry(T_RECORD* record);
-
 int delete_entry(char* filename);
 int delete_indirect_entry(DWORD index_block, char* filename);
 int delete_entry_in_block(DWORD entry_block, char* filename);
-
-// Bitmap
-int next_bitmap_index(int bitmap_handle, int bit_value);
-int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
-
-int remove_pointer_from_bitmap(DWORD number, WORD handle);
-int remove_file_content(T_INODE* inode);
-int iterate_singlePtr(DWORD indirection_block);
-int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block);
 
 /* **************************************************************** */
 

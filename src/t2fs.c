@@ -35,16 +35,6 @@ DWORD to_int(BYTE* chars, int num_bytes) {
 	return value;
 }
 
-BYTE* DWORD_to_BYTE(DWORD value, int num_bytes) {
-
-	BYTE* chars = (BYTE*)malloc(num_bytes*sizeof(BYTE));
-	strncpy((char*)chars, (char*)"\0", num_bytes );
-	int i;
-	for (i = 0; i < num_bytes; ++i) {
-		chars[i] = (value >> (8*i))&0xFF;
-	}
-	return chars;
-}
 BYTE* WORD_to_BYTE(WORD value, int num_bytes) {
 
 	BYTE* chars = (BYTE*)malloc(num_bytes*sizeof(BYTE));
@@ -135,14 +125,6 @@ T_RECORD* blank_record(){
 	rec->Nao_usado[1] = INVALID;
 	rec->inodeNumber  = INVALID;
 	return rec;
-}
-
-DIRENT2* blank_dentry(){
-	DIRENT2* dentry = alloc_dentry(1);
-	memset(dentry->name, '\0', sizeof(dentry->name));
-	dentry->fileType = TYPEVAL_INVALIDO;
-	dentry->fileSize = 0;
-	return dentry;
 }
 
 int load_root(){
@@ -247,18 +229,6 @@ int BYTE_to_SUPERBLOCK(BYTE* bytes, T_SUPERBLOCK* sb){
 	sb->diskSize = to_int(&(bytes[16]), 4);
 
 	sb->Checksum = to_int(&(bytes[20]), 4);
-
-	return SUCCESS;
-}
-
-int RECORD_to_DIRENTRY(T_RECORD* record, DIRENT2* dentry){
-	if (record == NULL || dentry == NULL) return FAILED;
-
-	memcpy(dentry->name, record->name, 51);
-	dentry->fileType = (DWORD) record->TypeVal;
-	T_INODE* inode = alloc_inode(1);
-	if(access_inode(record->inodeNumber, inode) != SUCCESS) return FAILED;
-	dentry->fileSize = inode->bytesFileSize;
 
 	return SUCCESS;
 }
@@ -445,7 +415,7 @@ int calculate_checksum(T_SUPERBLOCK sb) {
 }
 
 int initialize_inode_area(T_SUPERBLOCK* sb, int partition){
-	// first inode sector
+
 	int first_sector = disk_mbr.disk_partitions[partition].initial_sector;
 	first_sector += (sb->superblockSize+sb->freeInodeBitmapSize+sb->freeBlocksBitmapSize)*sb->blockSize;
 
@@ -458,7 +428,6 @@ int initialize_inode_area(T_SUPERBLOCK* sb, int partition){
 	}
 	// Area de inodes em blocks * setores por block
 	int total_inode_sectors = sb->inodeAreaSize * sb->blockSize;
-	//printf("total inode sectors: %d\n", total_inode_sectors);
 
 	for (i=0; i < total_inode_sectors; i++){
 		if( write_sector(first_sector+i, blank_sector) != SUCCESS){
@@ -483,7 +452,7 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 	valid_data_blocks = sb->diskSize - meta_blocks ;
 	limit_data_blocks = meta_blocks + valid_data_blocks;
 
-	if(openBitmap2(superblock_sector) != SUCCESS){return failed("OpenBitmap: Failed to allocate bitmaps in disk");}
+	if(openBitmap2(superblock_sector) != SUCCESS){return failed("[INIT BITMAP] Failed bitmap open.");}
 
 	// Set all inode bits to free, except for root (inode #0)
 	if(setBitmap2(BITMAP_INODES, ROOT_INODE, BIT_OCCUPIED) != SUCCESS)
@@ -492,24 +461,20 @@ int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 	//printf("Free inode bits range: %d-%d\n", ROOT_INODE+1, valid_nodes);
 	for (bit = ROOT_INODE+1; bit < valid_nodes; bit++){
 		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
-			//printf("bit ruim %d\n", bit);
 			return failed("[INIT BITMAP] Failed file inode bit set.");
 		}
 	}
 	// Initialize valid bits corresponding to data blocks to free
 	// and invalid ones to occupied (to forcibly limit access to non-existing disk area)
-
-	printf("Occupied (reserved) data bits range: %d-%d\n", 0, meta_blocks);
+	//printf("Occupied (reserved) data bits range: %d-%d\n", 0, meta_blocks);
 	for (bit= 0; bit < meta_blocks; bit++) {
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			//printf("occ bit ruim %d\n", bit);
 			return failed("[INIT BITMAP] Failed metadata bit set.");
 		}
 	}
-	//printf("Free data bits range: %d-%d\n", pre_data_blocks, data_blocks_limit);
+	//printf("Free data bits range: %d-%d\n", meta_blocks, limit_data_blocks);
 	for (bit= meta_blocks; bit < limit_data_blocks; bit++) {
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
-			//printf("free bit ruim %d\n", bit);
 			return failed("[INIT BITMAP] Failed datablock bit set");
 		}
 	}
@@ -524,7 +489,6 @@ DWORD map_inode_to_sector(int inode_index) {
 	sector += floor(inode_index/INODES_PER_SECTOR);
 	return sector;
 }
-
 
 int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode) {
 
@@ -544,41 +508,24 @@ int BYTE_to_INODE(BYTE* sector_buffer, int inode_index, T_INODE* inode) {
 	return SUCCESS;
 }
 
-int INODE_to_BYTE(T_INODE* inode, BYTE* bytes) {
-
-	// Converts inode DWORDs to unsigned char (BYTE) then copies the data to a
-	// BYTE array. Probably not very useful since it doesnt write to any sector
-	// and another function will need to call this one for that but alas.
-	strncpy((char*)&(bytes[0]),  (char*)DWORD_to_BYTE(inode->blocksFileSize, 4), 4);
-	strncpy((char*)&(bytes[4]),  (char*)DWORD_to_BYTE(inode->bytesFileSize, 4), 4);
-	strncpy((char*)&(bytes[8]),  (char*)DWORD_to_BYTE(inode->dataPtr[0], 4), 4);
-	strncpy((char*)&(bytes[12]), (char*)DWORD_to_BYTE(inode->dataPtr[1], 4), 4);
-	strncpy((char*)&(bytes[16]), (char*)DWORD_to_BYTE(inode->singleIndPtr, 4), 4);
-	strncpy((char*)&(bytes[20]), (char*)DWORD_to_BYTE(inode->doubleIndPtr, 4), 4);
-	strncpy((char*)&(bytes[24]), (char*)DWORD_to_BYTE(inode->RefCounter, 4), 4);
-	strncpy((char*)&(bytes[28]), (char*)DWORD_to_BYTE(inode->reservado, 4), 4);
-
-	return SUCCESS;
-}
-
 int save_inode(DWORD index, T_INODE* inode) {
   // Validation
-	if(index < FIRST_VALID_BIT) return(failed("Invalid inode index"));
-	if(inode == NULL) return(failed("Invalid inode pointer."));
+	if(index < FIRST_VALID_BIT) return failed("Invalid inode index");
+	if(inode == NULL) return failed("Invalid inode pointer.");
 
 	DWORD sector = map_inode_to_sector(index);
 	BYTE* buffer = (BYTE*) alloc_inode(INODES_PER_SECTOR);
 
 	if(read_sector(sector, buffer)!=SUCCESS)
-		return(failed("SaveInode: Failed to read sector"));
+		return failed("[SAVE INODE]: Failed sector read");
 
 	DWORD offset = (index % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
-	// printf("[SAVEINODE] Map inode to sector %d offset %d\n", sector, offset);
 	memcpy(&(buffer[offset]), inode, INODE_SIZE_BYTES);
 
 	if(write_sector(sector, buffer) != SUCCESS) {
-		return(failed("SaveInode, WriteSector failed "));
-	} else {
+		return failed("[SAVE INODE] Failed sector write.");
+	}
+	else {
 		if(set_bitmap_index(BITMAP_INODES, index, BIT_OCCUPIED) == SUCCESS)
 			return SUCCESS;
 		else return FAILED;
@@ -587,37 +534,36 @@ int save_inode(DWORD index, T_INODE* inode) {
 
 int update_inode(DWORD index, T_INODE inode) {
   // Validation
-	if(index < FIRST_VALID_BIT-1) return(failed("Invalid inode index"));
+	if(index < 0) return failed("Invalid inode index");
 
 	DWORD sector = map_inode_to_sector(index);
 	BYTE* buffer = (BYTE*) alloc_inode(INODES_PER_SECTOR);
 
 	if(read_sector(sector, buffer)!=SUCCESS) {
 		free(buffer);
-		return(failed("SaveInode: Failed to read sector"));
+		return failed("[UPDATE INODE] Failed sector read.");
 	}
 
 	DWORD offset = (index % INODES_PER_SECTOR)*INODE_SIZE_BYTES;
 	memcpy((void*)&(buffer[offset]), (void*)&inode, INODE_SIZE_BYTES);
 
-	if(write_sector(sector, buffer) != SUCCESS) {
-		return(failed("SaveInode, WriteSector failed "));
-	}
+	if(write_sector(sector, buffer) != SUCCESS)
+		return failed("[UPDATE INODE] Failed sector write.");
 
 	return SUCCESS;
 }
 
 /*-----------------------------------------------------------------------------*/
-// Next Bitmap Index:
 // Output ZERO if none of that bit value found in bitmap.
 // Output positive int index when found.
 // Output negative (-1) if some operation failed.
 int next_bitmap_index(int bitmap_handle, int bit_value){
 
 	if(!is_mounted()) return failed("[NEXTBIT] Failed validation");
-	if ((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES))
+	if((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES))
 		return failed("[NEXTBIT] Invalid bitmap handle.");
-	if((bit_value < 0) || (bit_value > 1) ) return failed("[NEXTBIT] Invalid bit value.");
+	if((bit_value != BIT_FREE) && (bit_value != BIT_OCCUPIED) )
+		return failed("Invalid bit value.");
 
 	DWORD sb_sector = mounted->mbr_data->initial_sector;
 	if(openBitmap2(sb_sector) != SUCCESS) return failed("[NEXTBIT] Failed OPEN");
@@ -632,18 +578,17 @@ int next_bitmap_index(int bitmap_handle, int bit_value){
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 	/* Validation */
 	if(!is_mounted()) return failed("Failed validation");
-	if ((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES))
+	if((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES))
 		return failed("Invalid bitmap handle.");
-	if((bit_value < 0) || (bit_value > 1) ) return failed("Invalid bit value.");
-	if (index < FIRST_VALID_BIT)	return failed("Subvalid index");
+	if((bit_value != BIT_FREE) && (bit_value != BIT_OCCUPIED) )
+		return failed("Invalid bit value.");
+	if(index < FIRST_VALID_BIT)	return failed("Invalid bit index");
 
 	DWORD sb_sector = mounted->mbr_data->initial_sector;
-
 	if(openBitmap2(sb_sector) != SUCCESS) return failed("[SETBIT] Failed OPEN");
 
 	//printf("[SetBM] h=%d, index: %d, value=%d\n",bitmap_handle, index, bit_value);
 	if(setBitmap2(bitmap_handle, (int)index, bit_value) != SUCCESS) return failed("[SETBIT] Failed SET.");
-
 	if(closeBitmap2() != SUCCESS) return failed("[SETBIT] Failed CLOSE");
 	return SUCCESS;
 }
@@ -722,11 +667,9 @@ int new_entry(T_RECORD* entry ){
 				return failed("[NEW ENTRY] Failed readblock.");
 			}
 			memcpy(buffer_record, buffer, record_size);
-			//if( strcmp(buffer_record->name, blank->name)!=0){
-// && access_inode(buffer_record->inodeNumber, buffer_inode) == SUCCESS) {
 			if (buffer_record->TypeVal != 0x00) {
-
 				// =-=-=-=-=-=-=-=-= Occupied spot: PASS =-=-=-=-=-=-=-=-= //
+
 				printf("[NEW ENTRY] Spot %d already taken.\n", sequential_index);
 				sequential_index++;
 				continue;
@@ -740,7 +683,6 @@ int new_entry(T_RECORD* entry ){
 				if(write_block(blockid, buffer, record_index_within_block*record_size,record_size) != SUCCESS){
 					return failed("[NEW ENTRY] Failed writeblock.");
 				}
-
 				// =-=-=-=-=-=-=-=-= Update directory inode =-=-=-=-=-=-=-=-= //
 
 				rt->total_entries++;
@@ -770,15 +712,14 @@ int new_file(char* filename, T_INODE** inode){
 
 	(*inode)->RefCounter = 1;
 	DWORD inode_index = next_bitmap_index(BITMAP_INODES, BIT_FREE);
-	// printf("[NEW_FILE] inode_index: %d\n", inode_index);
 
 	if(inode_index == NOT_FOUND)
-		return(failed("No inodes free"));
+		return failed("No inodes free");
 	else if(inode_index < FIRST_VALID_BIT)
-		return(failed("Failed bitmap query."));
+		return failed("Failed bitmap query.");
 
 	if(save_inode(inode_index, *inode) != SUCCESS)
-		return(failed("[NEW FILE] Failed to save inode."));
+		return failed("[NEW FILE] Failed to save inode.");
 
 	// new file - record creation
 	T_RECORD* rec = blank_record();
@@ -788,7 +729,6 @@ int new_file(char* filename, T_INODE** inode){
 
 	//adds record to root directory
 	if(new_entry(rec) <= NOT_FOUND) return failed("[NEW FILE] Could not store entry.");
-	//if(new_record2(rec) != SUCCESS) return(failed("NewFile: Failed to save record"));
 	return SUCCESS;
 }
 
@@ -816,7 +756,7 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	if(handle == BITMAP_INODES){
 		if(number >= 1 && number <= last_inode ){
 			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
-				return failed("[RPBMap] Failed to set inode bit free");
+				return failed("[CLEAR] Failed to set inode bit free");
 			}
 			else return SUCCESS;
 		}
@@ -824,11 +764,11 @@ int remove_pointer_from_bitmap(DWORD number, WORD handle){
 	else if (handle == BITMAP_BLOCKS){
 		if(number >= first_data_block && number <= last_data_block){
 			if(set_bitmap_index(handle, number, BIT_FREE) != SUCCESS){
-				return failed("[RPBMap] Failed to set block bit free");
+				return failed("[CLEAR] Failed to set block bit free");
 			}
 			else {
 				if(wipe_block(number)!= SUCCESS)
-					print("[RPBM] Failed block data wipe");
+					print("[CLEAR] Failed block data wipe");
 
 				printf("[CLEAR] block %d success.\n",number);
 				return SUCCESS;
@@ -928,10 +868,14 @@ Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para
 int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
+	if ((partition < 0) || (partition >= disk_mbr.num_partitions)){
+		printf("Invalid partition number.\n");
+		return FAILED;
+	}
 
 	T_SUPERBLOCK sb;
 	if(initialize_superblock(&sb, partition, sectors_per_block) != SUCCESS)
-		return failed("Failed to read superblock.");
+		return failed("Failed to initialize superblock.");
 
 	if(initialize_inode_area(&sb, partition) != SUCCESS)
 		return failed("Failed to initialize inode area.");
@@ -960,7 +904,6 @@ int mount(int partition) {
 	mounted->id = partition;
 	mounted->mbr_data = &(disk_mbr.disk_partitions[partition]);
 	if (load_superblock()) {
-		//printf("Not a valid partition\n");
 		free(mounted);
 		mounted = NULL;
 		return FAILED;
@@ -977,7 +920,6 @@ int mount(int partition) {
 
 	mounted->fst_inode_sector = inode_s0;
 	mounted->fst_data_sector = inode_s0 + sb->inodeAreaSize * sb->blockSize;
-	// TODO: REVISAR
 
 	mounted->pointers_per_block =
 			mounted->superblock->blockSize * SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
@@ -986,8 +928,6 @@ int mount(int partition) {
 
 	mounted->total_inodes = 0;
 	mounted->max_inodes 	= sb->inodeAreaSize*sb->blockSize*SECTOR_SIZE/INODE_SIZE_BYTES;
-
-	//opendir2();
 
 	// Get mounted partition, load root directory, set entry to zero.
 	if(!is_root_loaded())
@@ -1707,21 +1647,6 @@ int write2 (FILE2 handle, char *buffer, int size) {
  	mounted->root->entry_index = 0;
 	mounted->root->valid_entry_counter = 0;
  	return SUCCESS;
-}
-
-int BYTE_to_DIRENTRY(BYTE* data, DIRENT2* dentry){
-
-	memcpy((char*)&(dentry->name), &(data[0]), (DIRENT_MAX_NAME_SIZE+1)*sizeof(char));
-	dentry->fileType = data[DIRENT_MAX_NAME_SIZE+1];
-	dentry->fileSize = to_int(&(data[DIRENT_MAX_NAME_SIZE+2]), sizeof(DWORD));
-	return SUCCESS;
-}
-
-int DIRENTRY_to_BYTE(DIRENT2* dentry, BYTE* bytes){
-	strncpy((char*)&(bytes[0]), (char*)&(dentry->name), (DIRENT_MAX_NAME_SIZE+1)*sizeof(char));
-	bytes[DIRENT_MAX_NAME_SIZE+1] = dentry->fileType;
-	strncpy((char*)&(bytes[DIRENT_MAX_NAME_SIZE+2]), (char*)DWORD_to_BYTE(dentry->fileSize, sizeof(DWORD)), sizeof(DWORD));
-	return SUCCESS;
 }
 
 int access_inode(int inode_index, T_INODE* return_inode) {
