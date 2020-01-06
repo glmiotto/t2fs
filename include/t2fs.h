@@ -170,6 +170,7 @@ int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block);
 /* Bitmap operations */
 int next_bitmap_index(int bitmap_handle, int bit_value);
 int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value);
+int get_bit_at_index(int bitmap_handle, DWORD index);
 
 /* Directory operations */
 int new_file(char* filename, T_INODE** inode);

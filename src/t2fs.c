@@ -586,11 +586,22 @@ int set_bitmap_index(int bitmap_handle, DWORD index, int bit_value){
 
 	DWORD sb_sector = mounted->mbr_data->initial_sector;
 	if(openBitmap2(sb_sector) != SUCCESS) return failed("[SETBIT] Failed OPEN");
-
 	//printf("[SetBM] h=%d, index: %d, value=%d\n",bitmap_handle, index, bit_value);
 	if(setBitmap2(bitmap_handle, (int)index, bit_value) != SUCCESS) return failed("[SETBIT] Failed SET.");
 	if(closeBitmap2() != SUCCESS) return failed("[SETBIT] Failed CLOSE");
 	return SUCCESS;
+}
+
+int get_bit_at_index(int bitmap_handle, DWORD index){
+	if((bitmap_handle != BITMAP_BLOCKS) && (bitmap_handle != BITMAP_INODES))
+		return failed("Invalid bitmap handle.");
+	if(index < 0)	return failed("Invalid bit index");
+
+	DWORD sb_sector = mounted->mbr_data->initial_sector;
+	if(openBitmap2(sb_sector) != SUCCESS) return failed("[GETBIT] Failed OPEN");
+	int bit = getBitmap2(bitmap_handle, (int)index);
+	if(closeBitmap2() != SUCCESS) return failed("[GETBIT] Failed CLOSE");
+	return bit;
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -1654,16 +1665,18 @@ int access_inode(int inode_index, T_INODE* return_inode) {
 	// Root directory is first inode in first inode-sector
 	DWORD sector = mounted->fst_inode_sector + (inode_index/INODES_PER_SECTOR);
 	BYTE* buffer = alloc_sector();
+	int bit = get_bit_at_index(BITMAP_INODES, inode_index);
+	if(bit < 0) return failed("[ACCESS INODE] Failed bitmap query.");
+	if(bit == BIT_FREE) return FAILED;
 
 	if(read_sector(sector, buffer) != SUCCESS){
 		free(buffer);
-		return(failed("[ACCESS INODE]: Read sector failed."));
+		return failed("[ACCESS INODE] Read sector failed.");
 	}
 	if(BYTE_to_INODE(buffer, inode_index , return_inode) != SUCCESS) {
 		free(buffer);
-		return(failed("Failed BYTE to INODE translation"));
+		return failed("[ACCESS INODE] Failed BYTE to INODE translation");
 	}
-	// printf("[ACCESS_INODE] sector: %d - inode_idx: %d\n", sector, inode_index);
 	free(buffer);
 	return SUCCESS;
 }
@@ -1682,19 +1695,16 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 	int 	sector, e;
 	// We were given a block, now read sector by sector.
 	for (sector = 0; sector < total_sects; sector++){
-		if(read_sector(offset + sector, buffer) != SUCCESS){
-			//printf("FindEIB: failed to read sector %d of block %d", sector, entry_block);
-			return(failed("[FIND ENTRY-B]: Read sector failed."));
-		}
-		// Buffer (sector of an entry block) now holds about 4 entries.
+		if(read_sector(offset + sector, buffer) != SUCCESS) return failed("[FIND ENTRY-B]: Read sector failed.");
+
 		for (e = 0; e < entries_per_sector; e++) {
-			// EACH ENTRY has a byte for Type then 51 bytes for name.
+			// Entry: 1 byte for type then 51 bytes for name.
 			BYTE* buffer_name = &(buffer[e * entry_size + 1]);
 			strncpy((char*) entry_name,(char*) buffer_name, (MAX_FILENAME_SIZE+1));
 
 			if (strcmp(entry_name, filename) == 0){
-				memcpy(record, &(buffer[e*entry_size]), sizeof(T_RECORD));
-				//printf("ACHOU A ENTRADA\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				memcpy(record, &(buffer[e*entry_size]), entry_size);
+				//printf("[FOUND ENTRY] Filename: %s\nInode number: %d\n", record->name, record->inodeNumber);
 				return record->inodeNumber;
 			}
 		}
@@ -1714,16 +1724,13 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 	DWORD entry_block;
 	int i, s;
 	for(s=0; s < total_sects; s++ ){
-		if(read_sector(offset + s, buffer) != SUCCESS){
-			//printf("Sweep: failed to read sector %d of block %d", s, index_block);
-			return(failed("[FIND ENTRY-I]: Read sector failed."));
-		}
+		if(read_sector(offset + s, buffer) != SUCCESS) return failed("[FIND ENTRY-I]: Read sector failed.");
 
 		for(i=0; i<total_ptrs; i++){
 			// Each pointer points to an ENTRY BLOCK.
 			entry_block = to_int(&(buffer[i*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
 			if(find_entry_in_block(entry_block, filename, record) > 0){
-				//printf("ACHOU A ENTRADA INDIRETAMENTE\nFilename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				//printf("[FOUND ENTRY (IND)] Filename: %s\nInode number: %d\n", record->name, record->inodeNumber);
 				return 1;
 			}
 		}
@@ -1770,7 +1777,6 @@ int find_entry(char* filename, T_RECORD** record) {
 			return SUCCESS;
 		}
 	}
-
 	// DOUBLE INDIRECT POINTER
 	index_block = rt->inode->doubleIndPtr;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
@@ -1778,14 +1784,10 @@ int find_entry(char* filename, T_RECORD** record) {
 	//printf("[FIND ENTRY] Bloco de indices double: %d\n", index_block);
 
 	if(index_block > INVALID) {
-		// Valid index
 		for(s=0; s < total_sects; s++){
-			if(read_sector(offset + s, buffer) != SUCCESS){
-				//printf("Sweep: failed to read sector %d of block %d", s, index_block);
-				return(failed("[FIND ENTRY]: failed to read a sector"));}
+			if(read_sector(offset + s, buffer) != SUCCESS) return failed("[FIND ENTRY] Failed sector read.");
 
 			for(i=0; i<total_ptrs; i++){
-				// Each pointer --> a block of indexes to more blocks.
 				inner_index_block = *((DWORD*)&buffer[i*DATA_PTR_SIZE_BYTES]);
 
 				if(find_indirect_entry(inner_index_block, filename, *record) > NOT_FOUND){
@@ -1795,12 +1797,11 @@ int find_entry(char* filename, T_RECORD** record) {
 			}
 		}
 	}
-
 	return FAILED;
 }
 
 // input: filename
-// output: success code. if success, deleted entry corresponding to name
+// output: success code. if SUCCESS, deleted entry corresponding to name
 int delete_entry(char* filename) {
 	// Validation
 	if(!is_mounted()) return FAILED;
@@ -1844,11 +1845,8 @@ int delete_entry(char* filename) {
 	if(index_block > INVALID) {
 		// Valid index
 		for(s=0; s < total_sects; s++){
-			if(read_sector(offset + s, buffer) != SUCCESS){
-				//printf("Del: failed to read sector %d of block %d", s, index_block);
-				return(failed("Del: failed to read a sector"));}
+			if(read_sector(offset + s, buffer) != SUCCESS) return failed("[DEL ENTRY] failed to read a sector");
 			for(i=0; i<total_ptrs; i++){
-				// Each pointer --> a block of indexes to more blocks.
 				inner_index_block = *((DWORD*)&buffer[i*DATA_PTR_SIZE_BYTES]);
 
 				if(delete_indirect_entry(inner_index_block, filename) > NOT_FOUND){
@@ -1866,7 +1864,7 @@ int delete_indirect_entry(DWORD index_block, char* filename){
 	if(index_block < 1) return FAILED;
 	T_SUPERBLOCK* sb = mounted->superblock;
 
-	printf("[DEL ENTRY] Bloco de indices single: %d\n", index_block);
+	printf("[DEL ENTRY-I] Bloco de indices single: %d\n", index_block);
 	int i, s;
 	int total_sects = sb->blockSize;
 	DWORD offset = mounted->mbr_data->initial_sector+index_block * sb->blockSize;
@@ -1875,10 +1873,7 @@ int delete_indirect_entry(DWORD index_block, char* filename){
 	DWORD entry_block;
 
 	for(s=0; s < total_sects; s++ ){
-		if(read_sector(offset + s, buffer) != SUCCESS){
-			//printf("deleteentry: failed to read sector %d of block %d", s, index_block);
-			return(failed("deleteentry: failed to read a sector"));
-		}
+		if(read_sector(offset + s, buffer) != SUCCESS) return failed("[DEL ENTRY-I]: failed to read a sector");
 
 		for(i=0; i<total_ptrs; i++){
 			// Each pointer points to an ENTRY BLOCK.
@@ -1906,10 +1901,8 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 	int 	sector, e;
 	// We were given a block, now read sector by sector.
 	for (sector = 0; sector < total_sects; sector++){
-		if(read_sector(offset + sector, buffer) != SUCCESS){
-			//printf("FindEIB: failed to read sector %d of block %d", sector, entry_block);
-			return(failed("FindEIB: failed to read a sector"));
-		}
+		if(read_sector(offset + sector, buffer) != SUCCESS) return failed("[DEL ENTRY-B] failed to read a sector");
+
 		// Buffer (sector of an entry block) now holds about 4 entries.
 		for (e = 0; e < entries_per_sector; e++) {
 			memcpy(record, &(buffer[e*entry_size]), entry_size);
@@ -1917,10 +1910,10 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 			if(strcmp(record->name, filename) == 0) {
 				// achou
 				memcpy(&(buffer[e*entry_size]), blank , entry_size);
-				if(write_sector(offset + sector, buffer) != SUCCESS) return(failed("Failed a write sector"));
+				if(write_sector(offset + sector, buffer) != SUCCESS) return failed("[DEL ENTRY-B] Failed sector write.");
 				mounted->root->inode->bytesFileSize -= entry_size;
 				mounted->root->total_entries--;
-				if(update_inode(0, *(mounted->root->inode)) != SUCCESS) print("[DEL ENTRY] Could not update dirnode.") ;
+				if(update_inode(0, *(mounted->root->inode)) != SUCCESS) print("[DEL ENTRY-B] Could not update dirnode.") ;
 				return 1;
 			}
 		}
@@ -1932,8 +1925,8 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 Função:	Função usada para ler as entradas de um diretório.
 -----------------------------------------------------------------------------*/
 int readdir2 (DIRENT2 *dentry) {
-	if (init() != SUCCESS) return(failed("ReadDir: failed to initialize"));
-	if (!is_mounted()) return(failed("ReadDir failed: no partition mounted yet."));
+	if (init() != SUCCESS) return failed("[READ DIR] Failed INIT.");
+	if (!is_mounted()) return failed("[READ DIR] Failed: unmounted.");
 	// if mounted, check if directory open. if not, open and read the first index.
 	// otherwise read current entry IF VALID or the next valid one.
 	if(!is_root_open()) { opendir2(); }
@@ -1951,9 +1944,9 @@ int readdir2 (DIRENT2 *dentry) {
 	while(rec->TypeVal == 0x00) {
 
 		if (rt->valid_entry_counter >= rt->total_entries || rt->entry_index >= rt->max_entries) {
-			//printf("1Valid entries so far: %d | Total valid: %d | Cur index: %d | Maximum: %d\n",
+			//printf("Valid entries so far: %d | Total valid: %d | Cur index: %d | Maximum: %d\n",
 			//rt->valid_entry_counter,rt->total_entries, rt->entry_index, rt->max_entries);
-			printf("Reached end of dir\n");
+			//printf("Reached end of dir\n");
 			free(rec);
 			free(inode);
 			return -1;
@@ -1963,7 +1956,7 @@ int readdir2 (DIRENT2 *dentry) {
 		if(return_code < INVALID) return FAILED;
 		if(return_code > INVALID) {
 			if (rec->TypeVal != 0x00 && access_inode(rec->inodeNumber, inode)) {
-				printf("[READ DIR] Corrupted entry: couldn't load inode\n");
+				printf("[READ DIR] Couldn't load inode\n");
 				free(rec);
 				free(inode);
 				return -1;
@@ -2006,8 +1999,8 @@ int sln2 (char *linkname, char *filename) {
 	if (init() != SUCCESS) return failed("sln2: failed to initialize");
 	if (!is_mounted()) return failed("No partition mounted.");
 	if (!is_root_loaded()) return failed("Directory must be opened.");
-	if (!is_valid_filename(filename)) return(failed("Filename not valid."));
-	if (!is_valid_filename(linkname)) return(failed("Linkname not valid."));
+	if (!is_valid_filename(filename)) return failed("Filename not valid.");
+	if (!is_valid_filename(linkname)) return failed("Linkname not valid.");
 
 	T_RECORD* record = alloc_record(1);
 	// if file 'linkname' already exists
@@ -2015,7 +2008,6 @@ int sln2 (char *linkname, char *filename) {
 		//printf("File %s already exists.\n", linkname);
 		return FAILED;
 	}
-
 	// if file 'filename' doesnt exist
 	if (find_entry(filename, &record) != SUCCESS){
 		//printf("File %s doesn't exist.\n", filename);
@@ -2037,10 +2029,8 @@ int sln2 (char *linkname, char *filename) {
 	int setor_inicial = indice_bloco * mounted->superblock->blockSize;
 	int base_particao = mounted->mbr_data->initial_sector;
 
-	// // TODO: apagar conteudo do bloco?
 	// copia do nome do arquivo para o buffer
 	BYTE* buffer = alloc_sector();
-	// TODO: garantir que filename termina em \0 (strlen nao inclui \0)
 	memcpy(buffer, filename, sizeof(char)*(strlen(filename)+1));
 
 	// escreve o bloco no disco
