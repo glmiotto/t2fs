@@ -299,7 +299,7 @@ int teste_superblock(MBR* mbr, T_SUPERBLOCK* sb) {
 Função:	Informa a identificação dos desenvolvedores do T2FS.
 -----------------------------------------------------------------------------*/
 int identify2 (char *name, int size) {
-	char *nomes ="Artur Waquil Campana\t00287677\nGiovanna Lazzari Miotto\t00207758\nHenrique Chaves Pacheco\t00299902\n\0";
+	char *nomes ="Giovanna Lazzari Miotto 2019\n\0";
 	if (size < strlen(nomes)) {
 		printf("ERROR: identification requires size %zu or larger.\n", strlen(nomes));
 		return FAILED;
@@ -311,27 +311,28 @@ int identify2 (char *name, int size) {
 int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block) {
 	// Gets pointer to superblock for legibility
 
+	if(partition >= disk_mbr.num_partitions) return FAILED;
 	int fst_sect = disk_mbr.disk_partitions[partition].initial_sector;
 	int lst_sect  = disk_mbr.disk_partitions[partition].final_sector;
 	int num_sectors = lst_sect - fst_sect + 1;
-
+	printf("[INIT SB] First: %d | Last: %d | Number of sectors: %d\n",fst_sect,lst_sect,num_sectors);
 	memcpy((void*)sb->id, (void*)"T2FS", 4);
 	sb->version = 0x7E32;
 	sb->superblockSize = 1;
 	sb->blockSize = (WORD)sectors_per_block;
 
 	//Number of logical blocks in formatted disk.
-	sb->diskSize = (WORD)ceil(num_sectors/(float)sectors_per_block);
+	sb->diskSize = (WORD) floor(num_sectors/(float)sectors_per_block);
 
 	// 10% of partition blocks reserved to inodes (ROUND UP)
-	sb->inodeAreaSize = (WORD)(ceil(0.10*sb->diskSize));
+	sb->inodeAreaSize = (WORD)ceil(0.10*sb->diskSize);
 
 	// Total number of inodes is how many we fit into its area size.
 	// inodeAreaSize in bytes divided by inode size in bytes.
 	int total_inodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
 	total_inodes /= sizeof(T_INODE);
-	printf("[FORMAT2] Total inodes: %d\n",total_inodes);
-	printf("[FORMAT2] Inode Area Size (bytes) %d\n", sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size);
+	printf("[INIT SB] Total inodes: %d\n",total_inodes);
+	printf("[INIT SB] Inode Area Size (bytes) %d\n", sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size);
 
 	// inode bitmap size: 1 bit per inode given "X" inodes per block
 	float inode_bmap = (float)total_inodes;
@@ -339,8 +340,8 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 	inode_bmap /= (float)(8*disk_mbr.sector_size*sectors_per_block);
 	sb->freeInodeBitmapSize = (WORD) ceil(inode_bmap);
 
-	printf("[FORMAT2] Inode bitmap size (blocks): %f\n", inode_bmap);
-	printf("[FORMAT2] Inode bitmap size (blocks rounded): %d\n", sb->freeInodeBitmapSize);
+	printf("[INIT SB] Inode bitmap size (blocks): %f\n", inode_bmap);
+	printf("[INIT SB] Inode bitmap size (blocks rounded): %d\n", sb->freeInodeBitmapSize);
 
 	// Total number of data blocks is dependent on size of its own bitmap!
 	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
@@ -352,6 +353,11 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 	sb->freeBlocksBitmapSize = (WORD)
 		ceil(data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
 
+	printf("[INIT SB] DATA blocks: %f\n", data_blocks);
+	printf("[INIT SB] DATA bitmap size (blocks): %f\n", data_blocks / (float)(1 + 8*disk_mbr.sector_size*sectors_per_block));
+	printf("[INIT SB] DATA bitmap size (blocks rounded): %d\n", sb->freeBlocksBitmapSize);
+
+
 	sb->Checksum = calculate_checksum(*sb);
 
 	BYTE sector[SECTOR_SIZE] = {0};
@@ -362,29 +368,21 @@ int initialize_superblock(T_SUPERBLOCK* sb, int partition, int sectors_per_block
 			return -1;
 		}
 	}
-	//report_superblock(*sb, partition);
+	report_superblock(*sb, partition);
 	save_superblock(*sb, partition);
 	return SUCCESS;
 }
 
 int save_superblock(T_SUPERBLOCK sb, int partition) {
-	// Gets pointer to application-space superblock
+
 	BYTE* output = alloc_sector();
+	memcpy(output, &sb, sizeof(T_SUPERBLOCK));
+	int sb_sector_id = disk_mbr.disk_partitions[partition].initial_sector;
 
-	memcpy(output, sb.id, 4);
-	strncpy((char*)&(output[4]), (char*)WORD_to_BYTE(sb.version, 2),2);
-	strncpy((char*)&(output[6]), (char*)WORD_to_BYTE(sb.superblockSize, 2),2);
-	strncpy((char*)&(output[8]), (char*)WORD_to_BYTE(sb.freeBlocksBitmapSize, 2),2);
-	strncpy((char*)&(output[10]),(char*)WORD_to_BYTE(sb.freeInodeBitmapSize, 2),2);
-	strncpy((char*)&(output[12]),(char*)WORD_to_BYTE(sb.inodeAreaSize, 2),2);
-	strncpy((char*)&(output[14]),(char*)WORD_to_BYTE(sb.blockSize, 2),2);
-	strncpy((char*)&(output[16]),(char*)DWORD_to_BYTE(sb.diskSize, 4),4);
-	strncpy((char*)&(output[20]),(char*)DWORD_to_BYTE(sb.Checksum, 4),4);
-
-	if (write_sector(disk_mbr.disk_partitions[partition].initial_sector, output) != SUCCESS) {
+	if (write_sector(sb_sector_id, output) != SUCCESS) {
 		return failed("Failed to write superblock to partition sector");
 	}
-	else return SUCCESS;
+	return SUCCESS;
 }
 
 int load_superblock() {
@@ -460,89 +458,63 @@ int initialize_inode_area(T_SUPERBLOCK* sb, int partition){
 	}
 	// Area de inodes em blocks * setores por block
 	int total_inode_sectors = sb->inodeAreaSize * sb->blockSize;
-	printf("total inode sectors: %d\n", total_inode_sectors);
+	//printf("total inode sectors: %d\n", total_inode_sectors);
 
 	for (i=0; i < total_inode_sectors; i++){
 		if( write_sector(first_sector+i, blank_sector) != SUCCESS){
-			printf("init-fail write\n");
 			free(blank_sector);
-			return(failed("[INIT INODES] Failed to write inode sector in disk"));
+			return failed("[INIT INODES] Failed to write inode sector in disk");
 		}
 	}
-	printf("init-success\n");
 	free(blank_sector);
 	return SUCCESS;
 }
-
+// Allocates both Bitmaps for the currently mounted partition.
+// Output: success/error code
 int initialize_bitmaps(T_SUPERBLOCK* sb, int partition, int sectors_per_block){
 
-	// Allocates both Bitmaps for the currently mounted partition.
-	// Output: success/error code
-	// OpenBitmap receives the sector with the superblock.
-	if(openBitmap2(disk_mbr.disk_partitions[partition].initial_sector) != SUCCESS){
-		return failed("OpenBitmap: Failed to allocate bitmaps in disk");
-	}
+	int bit, valid_nodes, valid_data_blocks, meta_blocks, limit_data_blocks;
+	int superblock_sector = disk_mbr.disk_partitions[partition].initial_sector;
 
-	// Set inode bits to FREE,
-	// except for root (inode #0, currently no data blocks)
-	if(setBitmap2(BITMAP_INODES, ROOT_INODE, BIT_OCCUPIED) != SUCCESS)
-		return(failed("Init SetBitmaps fail 1."));
-
-	int valid_nodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
+	valid_nodes = sb->inodeAreaSize*sectors_per_block*disk_mbr.sector_size;
 	valid_nodes /= sizeof(T_INODE);
-	//int theoretical_nodes = sb->freeInodeBitmapSize*sb->blockSize*SECTOR_SIZE*8;
 
-	int bit;
+	meta_blocks = sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
+	valid_data_blocks = sb->diskSize - meta_blocks ;
+	limit_data_blocks = meta_blocks + valid_data_blocks;
+
+	if(openBitmap2(superblock_sector) != SUCCESS){return failed("OpenBitmap: Failed to allocate bitmaps in disk");}
+
+	// Set all inode bits to free, except for root (inode #0)
+	if(setBitmap2(BITMAP_INODES, ROOT_INODE, BIT_OCCUPIED) != SUCCESS)
+		return failed("[INIT BITMAP] Failed root inode bit set.");
+
 	//printf("Free inode bits range: %d-%d\n", ROOT_INODE+1, valid_nodes);
 	for (bit = ROOT_INODE+1; bit < valid_nodes; bit++){
-		// Each bit after root is set to FREE
 		if(setBitmap2(BITMAP_INODES, bit, BIT_FREE) != SUCCESS) {
 			//printf("bit ruim %d\n", bit);
-			return(failed("Failed to set a bit as free in inode bitmap"));
+			return failed("[INIT BITMAP] Failed file inode bit set.");
 		}
 	}
-	//
-	// for (bit = valid_nodes; bit < theoretical_nodes; bit++){
-	// 	// Each non-mappable bit is set to OCCUPIED forever
-	// 	if(setBitmap2(BITMAP_INODES, bit, BIT_OCCUPIED) != SUCCESS) {
-	// 		return(failed("Failed to set a theobit as occupied in inode bitmap"));
-	// 	}
-	// }
+	// Initialize valid bits corresponding to data blocks to free
+	// and invalid ones to occupied (to forcibly limit access to non-existing disk area)
 
-	// Data bitmap:
-	// Since bitmap size is measured in blocks (rounding up),
-	// we first initialize valid bits to FREE
-	// and invalid ones to OCC (to forcibly limit access to non-existing disk area)
-
-	float data_blocks = sb->diskSize - sb->inodeAreaSize - sb->superblockSize;
-	data_blocks -= sb->freeInodeBitmapSize;
-	int valid_blocks = data_blocks - sb->freeBlocksBitmapSize;
-
-	//int theoretical_blocks = sb->freeBlocksBitmapSize*sb->blockSize*SECTOR_SIZE*8;
-	int pre_data_blocks =
-		sb->freeInodeBitmapSize + sb->freeBlocksBitmapSize + sb->inodeAreaSize+ sb->superblockSize;
-
-	//printf("Occupied (reserved) data bits range: %d-%d\n", 0, pre_data_blocks);
-	for (bit= 0; bit < pre_data_blocks; bit++) {
-		// non addressable blocks are marked OCCUPIED forever
+	printf("Occupied (reserved) data bits range: %d-%d\n", 0, meta_blocks);
+	for (bit= 0; bit < meta_blocks; bit++) {
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_OCCUPIED) != SUCCESS) {
-			//printf("bit ruim %d\n", bit);
-			return(failed("Failed to set reserved bit as occupied in blocks bitmap"));
+			//printf("occ bit ruim %d\n", bit);
+			return failed("[INIT BITMAP] Failed metadata bit set.");
 		}
 	}
-	int data_blocks_limit = pre_data_blocks+valid_blocks;
 	//printf("Free data bits range: %d-%d\n", pre_data_blocks, data_blocks_limit);
-	for (bit= pre_data_blocks; bit < data_blocks_limit; bit++) {
-		// total VALID blocks (addressable by the API)
+	for (bit= meta_blocks; bit < limit_data_blocks; bit++) {
 		if(setBitmap2(BITMAP_BLOCKS, bit, BIT_FREE) != SUCCESS) {
-			//printf("bit ruim %d\n", bit);
-			return(failed("Failed to set bit as free in blocks bitmap"));
+			//printf("free bit ruim %d\n", bit);
+			return failed("[INIT BITMAP] Failed datablock bit set");
 		}
 	}
 
-	if(closeBitmap2() != SUCCESS) {
-		printf("WARNING: Could not save bitmap info to disk.");
-	}
+	if(closeBitmap2() != SUCCESS) {printf("WARNING: Could not save bitmap info to disk.");}
 	return SUCCESS;
 }
 
@@ -957,17 +929,15 @@ int format2(int partition, int sectors_per_block) {
 
 	if(init() != SUCCESS) return failed("Failed to initialize.");
 
-	// Initialize the partition starting area.
 	T_SUPERBLOCK sb;
 	if(initialize_superblock(&sb, partition, sectors_per_block) != SUCCESS)
 		return failed("Failed to read superblock.");
 
 	if(initialize_inode_area(&sb, partition) != SUCCESS)
-		return(failed("Format2: Failed to initialize inode area"));
+		return failed("Failed to initialize inode area.");
 
 	if(initialize_bitmaps(&sb, partition, sectors_per_block) != SUCCESS)
-		return(failed("Format2: Failed to initialize bitmap area"));
-
+		return failed("Failed to initialize bitmap structure.");
 
 	return SUCCESS;
 }
