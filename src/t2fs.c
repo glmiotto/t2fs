@@ -781,9 +781,6 @@ int iterate_singlePtr(DWORD indirection_block){
 
 	if(indirection_block == INVALID) return FAILED;
 
-	// Bloco de indices contendo
-	// ponteiros 4By para blocos de dados(representados no bitmap)
-	// Um setor = 64 ponteiros
 	BYTE* buffer = alloc_sector();
 	int i, j;
 	int sectors_per_block = mounted->superblock->blockSize;
@@ -825,9 +822,6 @@ int iterate_doublePtr(T_INODE* inode, DWORD double_indirection_block){
 		}
 		//iterate through pointers in sector1
 		for(j1=0; j1 < pointers_per_sector; j1++){
-				// pointer to single indirection index-block.
-				// apply to iterate_singlePtr to deal with deeper level pointers
-				// and then itself.
 			iterate_singlePtr(*((DWORD*)&sector[j1*DATA_PTR_SIZE_BYTES]));
 		}
 	}
@@ -1081,7 +1075,6 @@ FILE2 open2 (char *filename) {
 	}
 
 	T_INODE* inode = alloc_inode(1);
-	//printf("\ninopen %d\n", rec->inodeNumber);
 	if(access_inode(rec->inodeNumber, inode)) {
 		//printf("Error accessing the file's inode\n");
 		return -1;
@@ -1100,7 +1093,6 @@ FILE2 open2 (char *filename) {
 	for(i=0; i < MAX_FILES_OPEN; i++){
 		// check if position is not occupied by another file
 		if(fopen[i].inode == NULL){
-			//printf("Adicionei arquivo na posicao: %d\n", i);
 			if(rec->TypeVal == TYPEVAL_LINK){
 
 				BYTE* buffer = alloc_sector();
@@ -1108,8 +1100,6 @@ FILE2 open2 (char *filename) {
 				memcpy((void*)_filename, (void*)buffer, 51);
 				free(buffer);
 				return open2(_filename);
-				//if (find_entry(_filename, &rec) != SUCCESS) return FAILED;
-				//if (access_inode(rec->inodeNumber, inode) != SUCCESS) return FAILED;
 			}
 
 			fopen[i].record = rec;
@@ -1533,7 +1523,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
  			indice = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
  			if(indice < FIRST_VALID_BIT){
  				// printf("Needs %u new data blocks, but partition only has %u free.\n",number_new_blocks,i);
- 				return failed("[WRITE]: Failed to find enough free data blocks.");
+ 				return failed("[WRITE] No free data blocks.");
  			}
  			else {
 				//printf("[Write2] Ocupando block bitmap index: %d\n", indice);
@@ -1556,7 +1546,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
  			cur_block_index = get_data_block_index(f->inode, cur_block_number);
 
  			if(cur_block_index <= INVALID)
-				return failed("[WRITE] GetDataBlock retornou indice invalido");
+				return failed("[WRITE] Invalid block index.");
 
  			if ( (size - cur_data_byte) < (bytes_per_block - byte_shift))
  				write_length = size - cur_data_byte;
@@ -1577,7 +1567,7 @@ int write2 (FILE2 handle, char *buffer, int size) {
 		}
  	}
 	else {
-		printf("[WRITE] failed: Insufficient space (even after alloc)\n");
+		printf("[WRITE] failed: Insufficient space\n");
 		return -1;
 	}
  	return total_written;
@@ -1720,8 +1710,6 @@ int find_entry(char* filename, T_RECORD** record) {
 	// DOUBLE INDIRECT POINTER
 	index_block = rt->inode->doubleIndPtr;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
-	//printf("[FIND ENTRY] Looking for %s in double\n", filename);
-	//printf("[FIND ENTRY] Bloco de indices double: %d\n", index_block);
 
 	if(index_block > INVALID) {
 		for(s=0; s < total_sects; s++){
@@ -1889,8 +1877,6 @@ int readdir2 (DIRENT2 *dentry) {
 	while(rec->TypeVal == 0x00) {
 
 		if (rt->valid_entry_counter >= rt->total_entries || rt->entry_index >= rt->max_entries) {
-			//printf("Valid entries so far: %d | Total valid: %d | Cur index: %d | Maximum: %d\n",
-			//rt->valid_entry_counter,rt->total_entries, rt->entry_index, rt->max_entries);
 			//printf("Reached end of dir\n");
 			free(rec);
 			free(inode);
@@ -2002,7 +1988,6 @@ int sln2 (char *linkname, char *filename) {
 	T_RECORD* registro = blank_record();
 	registro->TypeVal = TYPEVAL_LINK;
 	if (strlen(linkname) > MAX_FILENAME_SIZE) return failed("Linkname is too big.");
-	// 51 contando o /0 da string
 	strncpy(registro->name, linkname, strlen(linkname)+1);
 	registro->inodeNumber = indice_inode;
 
@@ -2050,7 +2035,6 @@ int hln2(char *linkname, char *filename) {
 	if( find_entry(filename, &record) != SUCCESS) return FAILED;
 	int indice_inode = record->inodeNumber;
 	T_INODE* inode = alloc_inode(1);
-	// abre inode do arquivo 'filename'
 	if(access_inode(indice_inode, inode) != SUCCESS) return FAILED;
 	if(record->TypeVal != TYPEVAL_REGULAR){
 		printf("Cannot establish hard link to symbolic file.\n");
