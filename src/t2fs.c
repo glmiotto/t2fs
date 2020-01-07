@@ -132,11 +132,6 @@ int load_root(){
 	if (!is_mounted())  return(failed("No partition mounted."));
 	if (is_root_loaded()) return SUCCESS;
 
-	BYTE* buffer = alloc_sector();
-
-	if(read_sector(mounted->fst_inode_sector,  buffer) != SUCCESS)
-		return(failed("LoadRoot failed"));
-
 	T_INODE* dir_node = (T_INODE*)malloc(sizeof(T_INODE));
 	if(access_inode(ROOT_INODE, dir_node)!=SUCCESS){
 		return(failed("LoadRoot: Failed to access directory node"));
@@ -184,6 +179,7 @@ int init(){
 		return failed("F"); }
 	mounted = NULL;
 	t2fs_initialized = true;
+	free(master_sector);
 	return SUCCESS;
 }
 
@@ -352,6 +348,7 @@ int save_superblock(T_SUPERBLOCK sb, int partition) {
 	if (write_sector(sb_sector_id, output) != SUCCESS) {
 		return failed("Failed to write superblock to partition sector");
 	}
+	free(output);
 	return SUCCESS;
 }
 
@@ -526,6 +523,7 @@ int save_inode(DWORD index, T_INODE* inode) {
 		return failed("[SAVE INODE] Failed sector write.");
 	}
 	else {
+		free(buffer);
 		if(set_bitmap_index(BITMAP_INODES, index, BIT_OCCUPIED) == SUCCESS)
 			return SUCCESS;
 		else return FAILED;
@@ -661,7 +659,7 @@ int new_entry(T_RECORD* entry ){
 		if (blockid == INVALID) {
 
 			// =-=-=-=-=-=-=-=-= Allocate new data block for entries =-=-=-=-=-=-=-=-= //
-			printf("[NEW ENTRY] Alloc new block for spot %d.\n", sequential_index);
+			//printf("[NEW ENTRY] Alloc new block for spot %d.\n", sequential_index);
 
 			DWORD datablock = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
 			if(datablock <= INVALID ) return failed("[NEW ENTRY] Could not allocate data block.");
@@ -681,7 +679,7 @@ int new_entry(T_RECORD* entry ){
 			if (buffer_record->TypeVal != 0x00) {
 				// =-=-=-=-=-=-=-=-= Occupied spot: PASS =-=-=-=-=-=-=-=-= //
 
-				printf("[NEW ENTRY] Spot %d already taken.\n", sequential_index);
+				//printf("[NEW ENTRY] Spot %d already taken.\n", sequential_index);
 				sequential_index++;
 				continue;
 			}
@@ -689,7 +687,7 @@ int new_entry(T_RECORD* entry ){
 			else {
 				// =-=-=-=-=-=-=-=-= Free spot: write record structure =-=-=-=-=-=-=-=-= //
 
-				printf("[NEW ENTRY] Found free spot at %d.\n", sequential_index);
+				//printf("[NEW ENTRY] Found free spot at %d.\n", sequential_index);
 				memcpy(buffer, entry, record_size);
 				if(write_block(blockid, buffer, record_index_within_block*record_size,record_size) != SUCCESS){
 					return failed("[NEW ENTRY] Failed writeblock.");
@@ -700,7 +698,7 @@ int new_entry(T_RECORD* entry ){
 				dirnode->bytesFileSize += record_size;
 				if(update_inode(0, *dirnode) != SUCCESS) {print("[NEW ENTRY] Failed to update dirnode.");}
 				record_stored = 1;
-				printf("[NEW ENTRY] Success and serendipity at spot %d.\n", sequential_index);
+				//printf("[NEW ENTRY] Success and serendipity at spot %d.\n", sequential_index);
 				break;
 			}
 		}
@@ -1033,11 +1031,11 @@ int delete2 (char *filename) {
 	if (init() != SUCCESS) return failed("Failed INIT");
 	if(!is_mounted()) return failed("No partition mounted.");
 	if(!is_root_loaded()) return failed("Failed directory load.");
-	if(!is_valid_filename(filename)) return failed("[DEL]: Filename invalid");
+	if(!is_valid_filename(filename)) return failed("[DEL] Filename invalid");
 
 	T_RECORD* record = alloc_record(1);
 	if(find_entry(filename, &record) != SUCCESS){
-		return failed("[DEL]: File does not exist.");
+		return failed("[DEL] File does not exist.");
 	}
 	else {
 		T_INODE* inode = alloc_inode(1);
@@ -1124,7 +1122,7 @@ FILE2 open2 (char *filename) {
 				BYTE* buffer = alloc_sector();
 				if(read_block(inode->dataPtr[0], buffer, 0, 51)!= SUCCESS) return FAILED;
 				memcpy((void*)_filename, (void*)buffer, 51);
-
+				free(buffer);
 				return open2(_filename);
 				//if (find_entry(_filename, &rec) != SUCCESS) return FAILED;
 				//if (access_inode(rec->inodeNumber, inode) != SUCCESS) return FAILED;
@@ -1269,6 +1267,7 @@ int write_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int da
 	if(set_bitmap_index(BITMAP_BLOCKS, block_index, BIT_OCCUPIED) != SUCCESS){
 		return failed("[WRITEBLOCK] Failed to set bitmap index as occupied");
 	}
+	free(sector_buffer);
 	return SUCCESS;
 }
 
@@ -1323,12 +1322,13 @@ int read_block(DWORD block_index, BYTE* data_buffer, DWORD initial_byte, int dat
 		sector_byte = 0;
 		sector++;
 	}
+	free(sector_buffer);
 	return SUCCESS;
 }
 
 int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_number, DWORD block_index) {
 
-	printf("[INSERT BLOCKID] Alloc %d\n", block_index);
+	//printf("[INSERT BLOCKID] Alloc %d\n", block_index);
  	if (block_index == INVALID) return failed("[INSERT BLOCKID] Invalid bit index");
 	// printf("Indice achado para o bloco de dados %d\n", index);
 	int limit_direct = 2;
@@ -1426,7 +1426,7 @@ int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_n
 
 			// =-=-=-= Allocate single indirection block =-=-=-= //
 			DWORD new_single_index = next_bitmap_index(BITMAP_BLOCKS, BIT_FREE);
-			printf("[INSERT BLOCKID] 1Next single indirection block bit: %d\n", new_single_index);
+			//printf("[INSERT BLOCKID] 1Next single indirection block bit: %d\n", new_single_index);
 			if(new_single_index < FIRST_VALID_BIT){return failed("Write2: Failed to find enough free data blocks.");}
 			if(set_bitmap_index(BITMAP_BLOCKS, new_single_index, BIT_OCCUPIED) != SUCCESS){ return failed("[INSERTDATABLOCK] Failed set bit occ");}
 
@@ -1441,10 +1441,10 @@ int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_n
 
 		DWORD pointer_index_in_single = (cur_block_number-limit_single_indirection) % mounted->pointers_per_block;
 		sector_in_block = pointer_index_in_single / pointers_per_sector;
-		printf("[DOUBLE] Bloco single: %d\n", single_indirection_block);
-		printf("[DOUBLE] Ponteiro no bloco single: %d\n", pointer_index_in_single);
-		printf("[DOUBLE] Setor no bloco single: %d\n", sector_in_block);
-		printf("[DOUBLE] Block index: %d\n", block_index);
+		//printf("[DOUBLE] Bloco single: %d\n", single_indirection_block);
+		//printf("[DOUBLE] Ponteiro no bloco single: %d\n", pointer_index_in_single);
+		//printf("[DOUBLE] Setor no bloco single: %d\n", sector_in_block);
+		//printf("[DOUBLE] Block index: %d\n", block_index);
 
 		// BYTE bytes[4];
 		// int g;
@@ -1470,6 +1470,7 @@ int insert_data_block_index(T_INODE* inode, DWORD inode_index, DWORD cur_block_n
 
 		inode->blocksFileSize++;
 		if(update_inode(inode_index, *inode) != SUCCESS) return failed("Failed.");
+		free(sector_buffer);
 		return 1;
 	}
 	// Else, block sequential index out of bounds.
@@ -1500,6 +1501,7 @@ int get_data_block_index(T_INODE* inode, DWORD cur_block_number) {
 
 	 	if (read_sector(offset + sector_in_block, sector_buffer) != SUCCESS) {return failed("[GetDBI] Failed read sector");}
 		DWORD blockid = *((DWORD*)(&sector_buffer[shift_in_sector*DATA_PTR_SIZE_BYTES]));
+		free(sector_buffer);
 		return blockid;
 	 }
 	 // Double indirection
@@ -1535,13 +1537,14 @@ int get_data_block_index(T_INODE* inode, DWORD cur_block_number) {
 			 // printf("\n");
 
 		 if (blockid == INVALID) {
-			 printf("Double indirect block number : %d\n", double_indirection_index);
-			 printf("Single indirect block number : %d\n", single_indirection_block);
-			 printf("Cur block number:%d | sector in block %d | pointer in block %d | pointer in sector %d |\n",
-		 cur_block_number, sector_in_block,pointer_index_in_single,(pointer_index_in_single%pointers_per_sector) );
-			 printf("[GET BLOCKID] blockid value invalid\n");
+			 //printf("Double indirect block number : %d\n", double_indirection_index);
+			 //printf("Single indirect block number : %d\n", single_indirection_block);
+			 //printf("Cur block number:%d | sector in block %d | pointer in block %d | pointer in sector %d |\n",
+		 //cur_block_number, sector_in_block,pointer_index_in_single,(pointer_index_in_single%pointers_per_sector) );
+			 //printf("[GET BLOCKID] blockid value invalid\n");
 			 return INVALID;
 		 }
+		 free(sector_buffer);
 		 return blockid;
 	 }
 	 return INVALID;
@@ -1705,10 +1708,12 @@ int find_entry_in_block(DWORD entry_block, char* filename, T_RECORD* record) {
 			if (strcmp(entry_name, filename) == 0){
 				memcpy(record, &(buffer[e*entry_size]), entry_size);
 				//printf("[FOUND ENTRY] Filename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				free(buffer);
 				return record->inodeNumber;
 			}
 		}
 	}
+	free(buffer);
 	return NOT_FOUND;
 }
 
@@ -1731,10 +1736,12 @@ int find_indirect_entry(DWORD index_block, char* filename, T_RECORD* record){
 			entry_block = to_int(&(buffer[i*DATA_PTR_SIZE_BYTES]), DATA_PTR_SIZE_BYTES);
 			if(find_entry_in_block(entry_block, filename, record) > 0){
 				//printf("[FOUND ENTRY (IND)] Filename: %s\nInode number: %d\n", record->name, record->inodeNumber);
+				free(buffer);
 				return 1;
 			}
 		}
 	}
+	free(buffer);
 	return 0;
 }
 
@@ -1753,7 +1760,6 @@ int find_entry(char* filename, T_RECORD** record) {
 
 	free(*record);
 	*record = alloc_record(1);
-	BYTE* buffer = alloc_sector();
 	int total_sects = sb->blockSize;
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 
@@ -1777,6 +1783,7 @@ int find_entry(char* filename, T_RECORD** record) {
 			return SUCCESS;
 		}
 	}
+	BYTE* buffer = alloc_sector();
 	// DOUBLE INDIRECT POINTER
 	index_block = rt->inode->doubleIndPtr;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
@@ -1792,11 +1799,13 @@ int find_entry(char* filename, T_RECORD** record) {
 
 				if(find_indirect_entry(inner_index_block, filename, *record) > NOT_FOUND){
 					//printf("Found entry successfully");
+					free(buffer);
 					return SUCCESS;
 				}
 			}
 		}
 	}
+	free(buffer);
 	return FAILED;
 }
 
@@ -1812,7 +1821,6 @@ int delete_entry(char* filename) {
 
 	T_SUPERBLOCK* sb = mounted->superblock;
 	T_DIRECTORY* 	rt = mounted->root;
-	BYTE* buffer = alloc_sector();
 	int total_sects = sb->blockSize;
 	int total_ptrs = SECTOR_SIZE / DATA_PTR_SIZE_BYTES;
 
@@ -1836,6 +1844,7 @@ int delete_entry(char* filename) {
 			return SUCCESS;
 		}
 	}
+	BYTE* buffer = alloc_sector();
 	// DOUBLE INDIRECT POINTER
 	index_block = rt->inode->doubleIndPtr;
 	offset = mounted->mbr_data->initial_sector + index_block*sb->blockSize;
@@ -1851,11 +1860,13 @@ int delete_entry(char* filename) {
 
 				if(delete_indirect_entry(inner_index_block, filename) > NOT_FOUND){
 					//printf("Deleted entry successfully");
+					free(buffer);
 					return SUCCESS;
 				}
 			}
 		}
 	}
+	free(buffer);
 	return FAILED;
 }
 
@@ -1879,10 +1890,12 @@ int delete_indirect_entry(DWORD index_block, char* filename){
 			// Each pointer points to an ENTRY BLOCK.
 			entry_block = *((DWORD*)&(buffer[i*DATA_PTR_SIZE_BYTES]));
 			if(delete_entry_in_block(entry_block, filename) > 0){
+				free(buffer);
 				return 1;
 			}
 		}
 	}
+	free(buffer);
 	return NOT_FOUND;
 }
 
@@ -1914,10 +1927,12 @@ int delete_entry_in_block(DWORD entry_block, char* filename) {
 				mounted->root->inode->bytesFileSize -= entry_size;
 				mounted->root->total_entries--;
 				if(update_inode(0, *(mounted->root->inode)) != SUCCESS) print("[DEL ENTRY-B] Could not update dirnode.") ;
+				free(buffer);
 				return 1;
 			}
 		}
 	}
+	free(buffer);
 	return NOT_FOUND;
 }
 
