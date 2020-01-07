@@ -1,826 +1,787 @@
-********************************
-Superblock info for partition 1
+===============================================
+Superblock info for partition 0
 Id: T2FS
 Version: 32306
 Superblock size(1 block, first in partition): 1
 Free Blocks Bitmap Size(in blocks): 1
 Free Inodes Bitmap Size(in blocks): 1
-Inode area size (in blocks): 20
-Block size (in sectors): 4
-Disk size of partition (in blocks): 192
-Checksum: 2897432228
+Inode area size (in blocks): 128
+Block size (in sectors): 1
+Disk size of partition (in blocks): 1280
+Checksum: 2897627640
+===============================================
+===============================================
+Superblock info for partition 0
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 128
+Block size (in sectors): 1
+Disk size of partition (in blocks): 1280
+Checksum: 2897627640
+===============================================
+Max entries: 16648
 Opening dir: OK
-Creating rec name 1 - id 1: OK
-Creating rec name 2 - id 2: OK
-Creating rec name 3 - id 3: OK
-Creating rec name 4 - id 4: OK
-Creating rec name 5 - id 5: OK
-Creating rec name 6 - id 6: OK
-Creating rec name 7 - id 7: OK
-Creating rec name 8 - id 8: OK
-Creating rec name 9 - id 9: OK
-Creating rec name 10 - id 10: OK
-Creating rec name 11 - id 11: OK
-Creating rec name 12 - id 12: OK
-Creating rec name 13 - id 13: OK
-Creating rec name 14 - id 14: OK
-Creating rec name 15 - id 15: OK
-Creating rec name 16 - id 16: OK
-Creating rec name 17 - id 17: OK
-Creating rec name 18 - id 18: OK
-Creating rec name 19 - id 19: OK
-Creating rec name 20 - id 20: OK
-Creating rec name 21 - id 21: OK
-Creating rec name 22 - id 22: OK
-Creating rec name 23 - id 23: OK
-Creating rec name 24 - id 24: OK
-Creating rec name 25 - id 25: OK
-Creating rec name 26 - id 26: OK
-Creating rec name 27 - id 27: OK
-Creating rec name 28 - id 28: OK
-Creating rec name 29 - id 29: OK
-Creating rec name 30 - id 30: OK
-Creating rec name 31 - id 31: OK
-Creating rec name 32 - id 32: OK
-Creating rec name 33 - id 33: OK
-Creating rec name 34 - id 34: OK
-Creating rec name 35 - id 35: OK
-Creating rec name 36 - id 36: OK
-Creating rec name 37 - id 37: OK
-Creating rec name 38 - id 38: OK
-Creating rec name 39 - id 39: OK
-Creating rec name 40 - id 40: OK
-Creating rec name 41 - id 41: OK
-Creating rec name 42 - id 42: OK
-Creating rec name 43 - id 43: OK
-Creating rec name 44 - id 44: OK
-Creating rec name 45 - id 45: OK
-Creating rec name 46 - id 46: OK
-Creating rec name 47 - id 47: OK
-Creating rec name 48 - id 48: OK
-Creating rec name 49 - id 49: OK
-Creating rec name 50 - id 50: OK
-Creating rec name 51 - id 51: OK
-Creating rec name 52 - id 52: OK
-Creating rec name 53 - id 53: OK
-Creating rec name 54 - id 54: OK
-Creating rec name 55 - id 55: OK
-Creating rec name 56 - id 56: OK
-Creating rec name 57 - id 57: OK
-Creating rec name 58 - id 58: OK
-Creating rec name 59 - id 59: OK
-Creating rec name 60 - id 60: OK
-Creating rec name 61 - id 61: OK
-Creating rec name 62 - id 62: OK
-Creating rec name 63 - id 63: OK
-Creating rec name 64 - id 64: OK
-Creating rec name 65 - id 65: OK
-Creating rec name 66 - id 66: OK
-Creating rec name 67 - id 67: OK
-Creating rec name 68 - id 68: OK
-Creating rec name 69 - id 69: OK
-Creating rec name 70 - id 70: OK
-Creating rec name 71 - id 71: OK
-Creating rec name 72 - id 72: OK
-Creating rec name 73 - id 73: OK
-Creating rec name 74 - id 74: OK
-Creating rec name 75 - id 75: OK
-Creating rec name 76 - id 76: OK
-Creating rec name 77 - id 77: OK
-Creating rec name 78 - id 78: OK
-Creating rec name 79 - id 79: OK
-Creating rec name 80 - id 80: OK
-Creating rec name 81 - id 81: OK
-Creating rec name 82 - id 82: OK
-Creating rec name 83 - id 83: OK
-Creating rec name 84 - id 84: OK
-Creating rec name 85 - id 85: OK
-Creating rec name 86 - id 86: OK
-Creating rec name 87 - id 87: OK
-Creating rec name 88 - id 88: OK
-Creating rec name 89 - id 89: OK
-Creating rec name 90 - id 90: OK
-Creating rec name 91 - id 91: OK
-Creating rec name 92 - id 92: OK
-Creating rec name 93 - id 93: OK
-Creating rec name 94 - id 94: OK
-Creating rec name 95 - id 95: OK
-Creating rec name 96 - id 96: OK
-Creating rec name 97 - id 97: OK
-Creating rec name 98 - id 98: OK
-Creating rec name 99 - id 99: OK
-Creating rec name 100 - id 100: OK
-Creating rec name 101 - id 101: OK
-Creating rec name 102 - id 102: OK
-Creating rec name 103 - id 103: OK
-Creating rec name 104 - id 104: OK
-Creating rec name 105 - id 105: OK
-Creating rec name 106 - id 106: OK
-Creating rec name 107 - id 107: OK
-Creating rec name 108 - id 108: OK
-Creating rec name 109 - id 109: OK
-Creating rec name 110 - id 110: OK
-Creating rec name 111 - id 111: OK
-Creating rec name 112 - id 112: OK
-Creating rec name 113 - id 113: OK
-Creating rec name 114 - id 114: OK
-Creating rec name 115 - id 115: OK
-Creating rec name 116 - id 116: OK
-Creating rec name 117 - id 117: OK
-Creating rec name 118 - id 118: OK
-Creating rec name 119 - id 119: OK
-Creating rec name 120 - id 120: OK
-Creating rec name 121 - id 121: OK
-Creating rec name 122 - id 122: OK
-Creating rec name 123 - id 123: OK
-Creating rec name 124 - id 124: OK
-Creating rec name 125 - id 125: OK
-Creating rec name 126 - id 126: OK
-Creating rec name 127 - id 127: OK
-Creating rec name 128 - id 128: OK
-Creating rec name 129 - id 129: OK
-Creating rec name 130 - id 130: OK
-Creating rec name 131 - id 131: OK
-Creating rec name 132 - id 132: OK
-Creating rec name 133 - id 133: OK
-Creating rec name 134 - id 134: OK
-Creating rec name 135 - id 135: OK
-Total entries - 135 : OK
-Looking for record 0: OK
-	Comparing data
-		Name: "1" - OK
-		TypeVal: 1 - OK		
-Looking for record 1: OK
-	Comparing data
-		Name: "2" - OK
-		TypeVal: 2 - OK		
-Looking for record 2: OK
-	Comparing data
-		Name: "3" - OK
-		TypeVal: 3 - OK		
-Looking for record 3: OK
-	Comparing data
-		Name: "4" - OK
-		TypeVal: 4 - OK		
-Looking for record 4: OK
-	Comparing data
-		Name: "5" - OK
-		TypeVal: 5 - OK		
-Looking for record 5: OK
-	Comparing data
-		Name: "6" - OK
-		TypeVal: 6 - OK		
-Looking for record 6: OK
-	Comparing data
-		Name: "7" - OK
-		TypeVal: 7 - OK		
-Looking for record 7: OK
-	Comparing data
-		Name: "8" - OK
-		TypeVal: 8 - OK		
-Looking for record 8: OK
-	Comparing data
-		Name: "9" - OK
-		TypeVal: 9 - OK		
-Looking for record 9: OK
-	Comparing data
-		Name: "10" - OK
-		TypeVal: 10 - OK		
-Looking for record 10: OK
-	Comparing data
-		Name: "11" - OK
-		TypeVal: 11 - OK		
-Looking for record 11: OK
-	Comparing data
-		Name: "12" - OK
-		TypeVal: 12 - OK		
-Looking for record 12: OK
-	Comparing data
-		Name: "13" - OK
-		TypeVal: 13 - OK		
-Looking for record 13: OK
-	Comparing data
-		Name: "14" - OK
-		TypeVal: 14 - OK		
-Looking for record 14: OK
-	Comparing data
-		Name: "15" - OK
-		TypeVal: 15 - OK		
-Looking for record 15: OK
-	Comparing data
-		Name: "16" - OK
-		TypeVal: 16 - OK		
-Looking for record 16: OK
-	Comparing data
-		Name: "17" - OK
-		TypeVal: 17 - OK		
-Looking for record 17: OK
-	Comparing data
-		Name: "18" - OK
-		TypeVal: 18 - OK		
-Looking for record 18: OK
-	Comparing data
-		Name: "19" - OK
-		TypeVal: 19 - OK		
-Looking for record 19: OK
-	Comparing data
-		Name: "20" - OK
-		TypeVal: 20 - OK		
-Looking for record 20: OK
-	Comparing data
-		Name: "21" - OK
-		TypeVal: 21 - OK		
-Looking for record 21: OK
-	Comparing data
-		Name: "22" - OK
-		TypeVal: 22 - OK		
-Looking for record 22: OK
-	Comparing data
-		Name: "23" - OK
-		TypeVal: 23 - OK		
-Looking for record 23: OK
-	Comparing data
-		Name: "24" - OK
-		TypeVal: 24 - OK		
-Looking for record 24: OK
-	Comparing data
-		Name: "25" - OK
-		TypeVal: 25 - OK		
-Looking for record 25: OK
-	Comparing data
-		Name: "26" - OK
-		TypeVal: 26 - OK		
-Looking for record 26: OK
-	Comparing data
-		Name: "27" - OK
-		TypeVal: 27 - OK		
-Looking for record 27: OK
-	Comparing data
-		Name: "28" - OK
-		TypeVal: 28 - OK		
-Looking for record 28: OK
-	Comparing data
-		Name: "29" - OK
-		TypeVal: 29 - OK		
-Looking for record 29: OK
-	Comparing data
-		Name: "30" - OK
-		TypeVal: 30 - OK		
-Looking for record 30: OK
-	Comparing data
-		Name: "31" - OK
-		TypeVal: 31 - OK		
-Looking for record 31: OK
-	Comparing data
-		Name: "32" - OK
-		TypeVal: 32 - OK		
-Looking for record 32: OK
-	Comparing data
-		Name: "33" - OK
-		TypeVal: 33 - OK		
-Looking for record 33: OK
-	Comparing data
-		Name: "34" - OK
-		TypeVal: 34 - OK		
-Looking for record 34: OK
-	Comparing data
-		Name: "35" - OK
-		TypeVal: 35 - OK		
-Looking for record 35: OK
-	Comparing data
-		Name: "36" - OK
-		TypeVal: 36 - OK		
-Looking for record 36: OK
-	Comparing data
-		Name: "37" - OK
-		TypeVal: 37 - OK		
-Looking for record 37: OK
-	Comparing data
-		Name: "38" - OK
-		TypeVal: 38 - OK		
-Looking for record 38: OK
-	Comparing data
-		Name: "39" - OK
-		TypeVal: 39 - OK		
-Looking for record 39: OK
-	Comparing data
-		Name: "40" - OK
-		TypeVal: 40 - OK		
-Looking for record 40: OK
-	Comparing data
-		Name: "41" - OK
-		TypeVal: 41 - OK		
-Looking for record 41: OK
-	Comparing data
-		Name: "42" - OK
-		TypeVal: 42 - OK		
-Looking for record 42: OK
-	Comparing data
-		Name: "43" - OK
-		TypeVal: 43 - OK		
-Looking for record 43: OK
-	Comparing data
-		Name: "44" - OK
-		TypeVal: 44 - OK		
-Looking for record 44: OK
-	Comparing data
-		Name: "45" - OK
-		TypeVal: 45 - OK		
-Looking for record 45: OK
-	Comparing data
-		Name: "46" - OK
-		TypeVal: 46 - OK		
-Looking for record 46: OK
-	Comparing data
-		Name: "47" - OK
-		TypeVal: 47 - OK		
-Looking for record 47: OK
-	Comparing data
-		Name: "48" - OK
-		TypeVal: 48 - OK		
-Looking for record 48: OK
-	Comparing data
-		Name: "49" - OK
-		TypeVal: 49 - OK		
-Looking for record 49: OK
-	Comparing data
-		Name: "50" - OK
-		TypeVal: 50 - OK		
-Looking for record 50: OK
-	Comparing data
-		Name: "51" - OK
-		TypeVal: 51 - OK		
-Looking for record 51: OK
-	Comparing data
-		Name: "52" - OK
-		TypeVal: 52 - OK		
-Looking for record 52: OK
-	Comparing data
-		Name: "53" - OK
-		TypeVal: 53 - OK		
-Looking for record 53: OK
-	Comparing data
-		Name: "54" - OK
-		TypeVal: 54 - OK		
-Looking for record 54: OK
-	Comparing data
-		Name: "55" - OK
-		TypeVal: 55 - OK		
-Looking for record 55: OK
-	Comparing data
-		Name: "56" - OK
-		TypeVal: 56 - OK		
-Looking for record 56: OK
-	Comparing data
-		Name: "57" - OK
-		TypeVal: 57 - OK		
-Looking for record 57: OK
-	Comparing data
-		Name: "58" - OK
-		TypeVal: 58 - OK		
-Looking for record 58: OK
-	Comparing data
-		Name: "59" - OK
-		TypeVal: 59 - OK		
-Looking for record 59: OK
-	Comparing data
-		Name: "60" - OK
-		TypeVal: 60 - OK		
-Looking for record 60: OK
-	Comparing data
-		Name: "61" - OK
-		TypeVal: 61 - OK		
-Looking for record 61: OK
-	Comparing data
-		Name: "62" - OK
-		TypeVal: 62 - OK		
-Looking for record 62: OK
-	Comparing data
-		Name: "63" - OK
-		TypeVal: 63 - OK		
-Looking for record 63: OK
-	Comparing data
-		Name: "64" - OK
-		TypeVal: 64 - OK		
-Looking for record 64: OK
-	Comparing data
-		Name: "65" - OK
-		TypeVal: 65 - OK		
-Looking for record 65: OK
-	Comparing data
-		Name: "66" - OK
-		TypeVal: 66 - OK		
-Looking for record 66: OK
-	Comparing data
-		Name: "67" - OK
-		TypeVal: 67 - OK		
-Looking for record 67: OK
-	Comparing data
-		Name: "68" - OK
-		TypeVal: 68 - OK		
-Looking for record 68: OK
-	Comparing data
-		Name: "69" - OK
-		TypeVal: 69 - OK		
-Looking for record 69: OK
-	Comparing data
-		Name: "70" - OK
-		TypeVal: 70 - OK		
-Looking for record 70: OK
-	Comparing data
-		Name: "71" - OK
-		TypeVal: 71 - OK		
-Looking for record 71: OK
-	Comparing data
-		Name: "72" - OK
-		TypeVal: 72 - OK		
-Looking for record 72: OK
-	Comparing data
-		Name: "73" - OK
-		TypeVal: 73 - OK		
-Looking for record 73: OK
-	Comparing data
-		Name: "74" - OK
-		TypeVal: 74 - OK		
-Looking for record 74: OK
-	Comparing data
-		Name: "75" - OK
-		TypeVal: 75 - OK		
-Looking for record 75: OK
-	Comparing data
-		Name: "76" - OK
-		TypeVal: 76 - OK		
-Looking for record 76: OK
-	Comparing data
-		Name: "77" - OK
-		TypeVal: 77 - OK		
-Looking for record 77: OK
-	Comparing data
-		Name: "78" - OK
-		TypeVal: 78 - OK		
-Looking for record 78: OK
-	Comparing data
-		Name: "79" - OK
-		TypeVal: 79 - OK		
-Looking for record 79: OK
-	Comparing data
-		Name: "80" - OK
-		TypeVal: 80 - OK		
-Looking for record 80: OK
-	Comparing data
-		Name: "81" - OK
-		TypeVal: 81 - OK		
-Looking for record 81: OK
-	Comparing data
-		Name: "82" - OK
-		TypeVal: 82 - OK		
-Looking for record 82: OK
-	Comparing data
-		Name: "83" - OK
-		TypeVal: 83 - OK		
-Looking for record 83: OK
-	Comparing data
-		Name: "84" - OK
-		TypeVal: 84 - OK		
-Looking for record 84: OK
-	Comparing data
-		Name: "85" - OK
-		TypeVal: 85 - OK		
-Looking for record 85: OK
-	Comparing data
-		Name: "86" - OK
-		TypeVal: 86 - OK		
-Looking for record 86: OK
-	Comparing data
-		Name: "87" - OK
-		TypeVal: 87 - OK		
-Looking for record 87: OK
-	Comparing data
-		Name: "88" - OK
-		TypeVal: 88 - OK		
-Looking for record 88: OK
-	Comparing data
-		Name: "89" - OK
-		TypeVal: 89 - OK		
-Looking for record 89: OK
-	Comparing data
-		Name: "90" - OK
-		TypeVal: 90 - OK		
-Looking for record 90: OK
-	Comparing data
-		Name: "91" - OK
-		TypeVal: 91 - OK		
-Looking for record 91: OK
-	Comparing data
-		Name: "92" - OK
-		TypeVal: 92 - OK		
-Looking for record 92: OK
-	Comparing data
-		Name: "93" - OK
-		TypeVal: 93 - OK		
-Looking for record 93: OK
-	Comparing data
-		Name: "94" - OK
-		TypeVal: 94 - OK		
-Looking for record 94: OK
-	Comparing data
-		Name: "95" - OK
-		TypeVal: 95 - OK		
-Looking for record 95: OK
-	Comparing data
-		Name: "96" - OK
-		TypeVal: 96 - OK		
-Looking for record 96: OK
-	Comparing data
-		Name: "97" - OK
-		TypeVal: 97 - OK		
-Looking for record 97: OK
-	Comparing data
-		Name: "98" - OK
-		TypeVal: 98 - OK		
-Looking for record 98: OK
-	Comparing data
-		Name: "99" - OK
-		TypeVal: 99 - OK		
-Looking for record 99: OK
-	Comparing data
-		Name: "100" - OK
-		TypeVal: 100 - OK		
-Looking for record 100: OK
-	Comparing data
-		Name: "101" - OK
-		TypeVal: 101 - OK		
-Looking for record 101: OK
-	Comparing data
-		Name: "102" - OK
-		TypeVal: 102 - OK		
-Looking for record 102: OK
-	Comparing data
-		Name: "103" - OK
-		TypeVal: 103 - OK		
-Looking for record 103: OK
-	Comparing data
-		Name: "104" - OK
-		TypeVal: 104 - OK		
-Looking for record 104: OK
-	Comparing data
-		Name: "105" - OK
-		TypeVal: 105 - OK		
-Looking for record 105: OK
-	Comparing data
-		Name: "106" - OK
-		TypeVal: 106 - OK		
-Looking for record 106: OK
-	Comparing data
-		Name: "107" - OK
-		TypeVal: 107 - OK		
-Looking for record 107: OK
-	Comparing data
-		Name: "108" - OK
-		TypeVal: 108 - OK		
-Looking for record 108: OK
-	Comparing data
-		Name: "109" - OK
-		TypeVal: 109 - OK		
-Looking for record 109: OK
-	Comparing data
-		Name: "110" - OK
-		TypeVal: 110 - OK		
-Looking for record 110: OK
-	Comparing data
-		Name: "111" - OK
-		TypeVal: 111 - OK		
-Looking for record 111: OK
-	Comparing data
-		Name: "112" - OK
-		TypeVal: 112 - OK		
-Looking for record 112: OK
-	Comparing data
-		Name: "113" - OK
-		TypeVal: 113 - OK		
-Looking for record 113: OK
-	Comparing data
-		Name: "114" - OK
-		TypeVal: 114 - OK		
-Looking for record 114: OK
-	Comparing data
-		Name: "115" - OK
-		TypeVal: 115 - OK		
-Looking for record 115: OK
-	Comparing data
-		Name: "116" - OK
-		TypeVal: 116 - OK		
-Looking for record 116: OK
-	Comparing data
-		Name: "117" - OK
-		TypeVal: 117 - OK		
-Looking for record 117: OK
-	Comparing data
-		Name: "118" - OK
-		TypeVal: 118 - OK		
-Looking for record 118: OK
-	Comparing data
-		Name: "119" - OK
-		TypeVal: 119 - OK		
-Looking for record 119: OK
-	Comparing data
-		Name: "120" - OK
-		TypeVal: 120 - OK		
-Looking for record 120: OK
-	Comparing data
-		Name: "121" - OK
-		TypeVal: 121 - OK		
-Looking for record 121: OK
-	Comparing data
-		Name: "122" - OK
-		TypeVal: 122 - OK		
-Looking for record 122: OK
-	Comparing data
-		Name: "123" - OK
-		TypeVal: 123 - OK		
-Looking for record 123: OK
-	Comparing data
-		Name: "124" - OK
-		TypeVal: 124 - OK		
-Looking for record 124: OK
-	Comparing data
-		Name: "125" - OK
-		TypeVal: 125 - OK		
-Looking for record 125: OK
-	Comparing data
-		Name: "126" - OK
-		TypeVal: 126 - OK		
-Looking for record 126: OK
-	Comparing data
-		Name: "127" - OK
-		TypeVal: 127 - OK		
-Looking for record 127: OK
-	Comparing data
-		Name: "128" - OK
-		TypeVal: 128 - OK		
-Looking for record 128: OK
-	Comparing data
-		Name: "129" - OK
-		TypeVal: 129 - OK		
-Looking for record 129: OK
-	Comparing data
-		Name: "130" - OK
-		TypeVal: 130 - OK		
-Looking for record 130: OK
-	Comparing data
-		Name: "131" - OK
-		TypeVal: 131 - OK		
-Looking for record 131: OK
-	Comparing data
-		Name: "132" - OK
-		TypeVal: 132 - OK		
-Looking for record 132: OK
-	Comparing data
-		Name: "133" - OK
-		TypeVal: 133 - OK		
-Looking for record 133: OK
-	Comparing data
-		Name: "134" - OK
-		TypeVal: 134 - OK		
-Looking for record 134: OK
-	Comparing data
-		Name: "135" - OK
-		TypeVal: 135 - OK		
+Total entries - 300 : OK
 Closing dir: OK
+LISTING DIRECTORY:
+   0|-        0 original
+   1|-        0 1
+   2|-        0 2
+   3|-        0 3
+   4|-        0 4
+   5|-        0 5
+   6|-        0 6
+   7|-        0 7
+   8|-        0 8
+   9|-        0 9
+  10|-        0 10
+  11|-        0 11
+  12|-        0 12
+  13|-        0 13
+  14|-        0 14
+  15|-        0 15
+  16|-        0 16
+  17|-        0 17
+  18|-        0 18
+  19|-        0 19
+  20|-        0 20
+  21|-        0 21
+  22|-        0 22
+  23|-        0 23
+  24|-        0 24
+  25|-        0 25
+  26|-        0 26
+  27|-        0 27
+  28|-        0 28
+  29|-        0 29
+  30|-        0 30
+  31|-        0 31
+  32|-        0 32
+  33|-        0 33
+  34|-        0 34
+  35|-        0 35
+  36|-        0 36
+  37|-        0 37
+  38|-        0 38
+  39|-        0 39
+  40|-        0 40
+  41|-        0 41
+  42|-        0 42
+  43|-        0 43
+  44|-        0 44
+  45|-        0 45
+  46|-        0 46
+  47|-        0 47
+  48|-        0 48
+  49|-        0 49
+  50|-        0 50
+  51|-        0 51
+  52|-        0 52
+  53|-        0 53
+  54|-        0 54
+  55|-        0 55
+  56|-        0 56
+  57|-        0 57
+  58|-        0 58
+  59|-        0 59
+  60|-        0 60
+  61|-        0 61
+  62|-        0 62
+  63|-        0 63
+  64|-        0 64
+  65|-        0 65
+  66|-        0 66
+  67|-        0 67
+  68|-        0 68
+  69|-        0 69
+  70|-        0 70
+  71|-        0 71
+  72|-        0 72
+  73|-        0 73
+  74|-        0 74
+  75|-        0 75
+  76|-        0 76
+  77|-        0 77
+  78|-        0 78
+  79|-        0 79
+  80|-        0 80
+  81|-        0 81
+  82|-        0 82
+  83|-        0 83
+  84|-        0 84
+  85|-        0 85
+  86|-        0 86
+  87|-        0 87
+  88|-        0 88
+  89|-        0 89
+  90|-        0 90
+  91|-        0 91
+  92|-        0 92
+  93|-        0 93
+  94|-        0 94
+  95|-        0 95
+  96|-        0 96
+  97|-        0 97
+  98|-        0 98
+  99|-        0 99
+ 100|-        0 100
+ 101|-        0 101
+ 102|-        0 102
+ 103|-        0 103
+ 104|-        0 104
+ 105|-        0 105
+ 106|-        0 106
+ 107|-        0 107
+ 108|-        0 108
+ 109|-        0 109
+ 110|-        0 110
+ 111|-        0 111
+ 112|-        0 112
+ 113|-        0 113
+ 114|-        0 114
+ 115|-        0 115
+ 116|-        0 116
+ 117|-        0 117
+ 118|-        0 118
+ 119|-        0 119
+ 120|-        0 120
+ 121|-        0 121
+ 122|-        0 122
+ 123|-        0 123
+ 124|-        0 124
+ 125|-        0 125
+ 126|-        0 126
+ 127|-        0 127
+ 128|-        0 128
+ 129|-        0 129
+ 130|-        0 130
+ 131|-        0 131
+ 132|-        0 132
+ 133|-        0 133
+ 134|-        0 134
+ 135|-        0 135
+ 136|-        0 136
+ 137|-        0 137
+ 138|-        0 138
+ 139|-        0 139
+ 140|-        0 140
+ 141|-        0 141
+ 142|-        0 142
+ 143|-        0 143
+ 144|-        0 144
+ 145|-        0 145
+ 146|-        0 146
+ 147|-        0 147
+ 148|-        0 148
+ 149|-        0 149
+ 150|-        0 150
+ 151|-        0 151
+ 152|-        0 152
+ 153|-        0 153
+ 154|-        0 154
+ 155|-        0 155
+ 156|-        0 156
+ 157|-        0 157
+ 158|-        0 158
+ 159|-        0 159
+ 160|-        0 160
+ 161|-        0 161
+ 162|-        0 162
+ 163|-        0 163
+ 164|-        0 164
+ 165|-        0 165
+ 166|-        0 166
+ 167|-        0 167
+ 168|-        0 168
+ 169|-        0 169
+ 170|-        0 170
+ 171|-        0 171
+ 172|-        0 172
+ 173|-        0 173
+ 174|-        0 174
+ 175|-        0 175
+ 176|-        0 176
+ 177|-        0 177
+ 178|-        0 178
+ 179|-        0 179
+ 180|-        0 180
+ 181|-        0 181
+ 182|-        0 182
+ 183|-        0 183
+ 184|-        0 184
+ 185|-        0 185
+ 186|-        0 186
+ 187|-        0 187
+ 188|-        0 188
+ 189|-        0 189
+ 190|-        0 190
+ 191|-        0 191
+ 192|-        0 192
+ 193|-        0 193
+ 194|-        0 194
+ 195|-        0 195
+ 196|-        0 196
+ 197|-        0 197
+ 198|-        0 198
+ 199|-        0 199
+ 200|-        0 200
+ 201|-        0 201
+ 202|-        0 202
+ 203|-        0 203
+ 204|-        0 204
+ 205|-        0 205
+ 206|-        0 206
+ 207|-        0 207
+ 208|-        0 208
+ 209|-        0 209
+ 210|-        0 210
+ 211|-        0 211
+ 212|-        0 212
+ 213|-        0 213
+ 214|-        0 214
+ 215|-        0 215
+ 216|-        0 216
+ 217|-        0 217
+ 218|-        0 218
+ 219|-        0 219
+ 220|-        0 220
+ 221|-        0 221
+ 222|-        0 222
+ 223|-        0 223
+ 224|-        0 224
+ 225|-        0 225
+ 226|-        0 226
+ 227|-        0 227
+ 228|-        0 228
+ 229|-        0 229
+ 230|-        0 230
+ 231|-        0 231
+ 232|-        0 232
+ 233|-        0 233
+ 234|-        0 234
+ 235|-        0 235
+ 236|-        0 236
+ 237|-        0 237
+ 238|-        0 238
+ 239|-        0 239
+ 240|-        0 240
+ 241|-        0 241
+ 242|-        0 242
+ 243|-        0 243
+ 244|-        0 244
+ 245|-        0 245
+ 246|-        0 246
+ 247|-        0 247
+ 248|-        0 248
+ 249|-        0 249
+ 250|-        0 250
+ 251|-        0 251
+ 252|-        0 252
+ 253|-        0 253
+ 254|-        0 254
+ 255|-        0 255
+ 256|-        0 256
+ 257|-        0 257
+ 258|-        0 258
+ 259|-        0 259
+ 260|-        0 260
+ 261|-        0 261
+ 262|-        0 262
+ 263|-        0 263
+ 264|-        0 264
+ 265|-        0 265
+ 266|-        0 266
+ 267|-        0 267
+ 268|-        0 268
+ 269|-        0 269
+ 270|-        0 270
+ 271|-        0 271
+ 272|-        0 272
+ 273|-        0 273
+ 274|-        0 274
+ 275|-        0 275
+ 276|-        0 276
+ 277|-        0 277
+ 278|-        0 278
+ 279|-        0 279
+ 280|-        0 280
+ 281|-        0 281
+ 282|-        0 282
+ 283|-        0 283
+ 284|-        0 284
+ 285|-        0 285
+ 286|-        0 286
+ 287|-        0 287
+ 288|-        0 288
+ 289|-        0 289
+ 290|-        0 290
+ 291|-        0 291
+ 292|-        0 292
+ 293|-        0 293
+ 294|-        0 294
+ 295|-        0 295
+ 296|-        0 296
+ 297|-        0 297
+ 298|-        0 298
+ 299|-        0 299
 Opening dir: OK
-Deleting record 0: OK
 Deleting record 1: OK
-Deleting record 2: OK
 Deleting record 3: OK
-Deleting record 4: OK
 Deleting record 5: OK
-Deleting record 6: OK
 Deleting record 7: OK
-Deleting record 8: OK
 Deleting record 9: OK
-Deleting record 10: OK
 Deleting record 11: OK
-Deleting record 12: OK
 Deleting record 13: OK
-Deleting record 14: OK
 Deleting record 15: OK
-Deleting record 16: OK
 Deleting record 17: OK
-Deleting record 18: OK
 Deleting record 19: OK
-Deleting record 20: OK
 Deleting record 21: OK
-Deleting record 22: OK
 Deleting record 23: OK
-Deleting record 24: OK
 Deleting record 25: OK
-Deleting record 26: OK
 Deleting record 27: OK
-Deleting record 28: OK
 Deleting record 29: OK
-Deleting record 30: OK
 Deleting record 31: OK
-Deleting record 32: OK
 Deleting record 33: OK
-Deleting record 34: OK
 Deleting record 35: OK
-Deleting record 36: OK
 Deleting record 37: OK
-Deleting record 38: OK
 Deleting record 39: OK
-Deleting record 40: OK
 Deleting record 41: OK
-Deleting record 42: OK
 Deleting record 43: OK
-Deleting record 44: OK
 Deleting record 45: OK
-Deleting record 46: OK
 Deleting record 47: OK
-Deleting record 48: OK
 Deleting record 49: OK
-Deleting record 50: OK
 Deleting record 51: OK
-Deleting record 52: OK
 Deleting record 53: OK
-Deleting record 54: OK
 Deleting record 55: OK
-Deleting record 56: OK
 Deleting record 57: OK
-Deleting record 58: OK
 Deleting record 59: OK
-Deleting record 60: OK
 Deleting record 61: OK
-Deleting record 62: OK
 Deleting record 63: OK
-Deleting record 64: OK
 Deleting record 65: OK
-Deleting record 66: OK
 Deleting record 67: OK
-Deleting record 68: OK
 Deleting record 69: OK
-Deleting record 70: OK
 Deleting record 71: OK
-Deleting record 72: OK
 Deleting record 73: OK
-Deleting record 74: OK
 Deleting record 75: OK
-Deleting record 76: OK
 Deleting record 77: OK
-Deleting record 78: OK
 Deleting record 79: OK
-Deleting record 80: OK
 Deleting record 81: OK
-Deleting record 82: OK
 Deleting record 83: OK
-Deleting record 84: OK
 Deleting record 85: OK
-Deleting record 86: OK
 Deleting record 87: OK
-Deleting record 88: OK
 Deleting record 89: OK
-Deleting record 90: OK
 Deleting record 91: OK
-Deleting record 92: OK
 Deleting record 93: OK
-Deleting record 94: OK
 Deleting record 95: OK
-Deleting record 96: OK
 Deleting record 97: OK
-Deleting record 98: OK
 Deleting record 99: OK
-Deleting record 100: OK
 Deleting record 101: OK
-Deleting record 102: OK
 Deleting record 103: OK
-Deleting record 104: OK
 Deleting record 105: OK
-Deleting record 106: OK
 Deleting record 107: OK
-Deleting record 108: OK
 Deleting record 109: OK
-Deleting record 110: OK
 Deleting record 111: OK
-Deleting record 112: OK
 Deleting record 113: OK
-Deleting record 114: OK
 Deleting record 115: OK
-Deleting record 116: OK
 Deleting record 117: OK
-Deleting record 118: OK
 Deleting record 119: OK
-Deleting record 120: OK
 Deleting record 121: OK
-Deleting record 122: OK
 Deleting record 123: OK
-Deleting record 124: OK
 Deleting record 125: OK
-Deleting record 126: OK
 Deleting record 127: OK
-Deleting record 128: OK
 Deleting record 129: OK
-Deleting record 130: OK
 Deleting record 131: OK
-Deleting record 132: OK
 Deleting record 133: OK
-Deleting record 134: OK
+Deleting record 135: OK
+Deleting record 137: OK
+Deleting record 139: OK
+Deleting record 141: OK
+Deleting record 143: OK
+Deleting record 145: OK
+Deleting record 147: OK
+Deleting record 149: OK
+Deleting record 151: OK
+Deleting record 153: OK
+Deleting record 155: OK
+Deleting record 157: OK
+Deleting record 159: OK
+Deleting record 161: OK
+Deleting record 163: OK
+Deleting record 165: OK
+Deleting record 167: OK
+Deleting record 169: OK
+Deleting record 171: OK
+Deleting record 173: OK
+Deleting record 175: OK
+Deleting record 177: OK
+Deleting record 179: OK
+Deleting record 181: OK
+Deleting record 183: OK
+Deleting record 185: OK
+Deleting record 187: OK
+Deleting record 189: OK
+Deleting record 191: OK
+Deleting record 193: OK
+Deleting record 195: OK
+Deleting record 197: OK
+Deleting record 199: OK
+Deleting record 201: OK
+Deleting record 203: OK
+Deleting record 205: OK
+Deleting record 207: OK
+Deleting record 209: OK
+Deleting record 211: OK
+Deleting record 213: OK
+Deleting record 215: OK
+Deleting record 217: OK
+Deleting record 219: OK
+Deleting record 221: OK
+Deleting record 223: OK
+Deleting record 225: OK
+Deleting record 227: OK
+Deleting record 229: OK
+Deleting record 231: OK
+Deleting record 233: OK
+Deleting record 235: OK
+Deleting record 237: OK
+Deleting record 239: OK
+Deleting record 241: OK
+Deleting record 243: OK
+Deleting record 245: OK
+Deleting record 247: OK
+Deleting record 249: OK
+Deleting record 251: OK
+Deleting record 253: OK
+Deleting record 255: OK
+Deleting record 257: OK
+Deleting record 259: OK
+Deleting record 261: OK
+Deleting record 263: OK
+Deleting record 265: OK
+Deleting record 267: OK
+Deleting record 269: OK
+Deleting record 271: OK
+Deleting record 273: OK
+Deleting record 275: OK
+Deleting record 277: OK
+Deleting record 279: OK
+Deleting record 281: OK
+Deleting record 283: OK
+Deleting record 285: OK
+Deleting record 287: OK
+Deleting record 289: OK
+Deleting record 291: OK
+Deleting record 293: OK
+Deleting record 295: OK
+Deleting record 297: OK
+Deleting record 299: OK
+LISTING DIRECTORY:
+   0|-        0 original
+   1|-        0 2
+   2|-        0 4
+   3|-        0 6
+   4|-        0 8
+   5|-        0 10
+   6|-        0 12
+   7|-        0 14
+   8|-        0 16
+   9|-        0 18
+  10|-        0 20
+  11|-        0 22
+  12|-        0 24
+  13|-        0 26
+  14|-        0 28
+  15|-        0 30
+  16|-        0 32
+  17|-        0 34
+  18|-        0 36
+  19|-        0 38
+  20|-        0 40
+  21|-        0 42
+  22|-        0 44
+  23|-        0 46
+  24|-        0 48
+  25|-        0 50
+  26|-        0 52
+  27|-        0 54
+  28|-        0 56
+  29|-        0 58
+  30|-        0 60
+  31|-        0 62
+  32|-        0 64
+  33|-        0 66
+  34|-        0 68
+  35|-        0 70
+  36|-        0 72
+  37|-        0 74
+  38|-        0 76
+  39|-        0 78
+  40|-        0 80
+  41|-        0 82
+  42|-        0 84
+  43|-        0 86
+  44|-        0 88
+  45|-        0 90
+  46|-        0 92
+  47|-        0 94
+  48|-        0 96
+  49|-        0 98
+  50|-        0 100
+  51|-        0 102
+  52|-        0 104
+  53|-        0 106
+  54|-        0 108
+  55|-        0 110
+  56|-        0 112
+  57|-        0 114
+  58|-        0 116
+  59|-        0 118
+  60|-        0 120
+  61|-        0 122
+  62|-        0 124
+  63|-        0 126
+  64|-        0 128
+  65|-        0 130
+  66|-        0 132
+  67|-        0 134
+  68|-        0 136
+  69|-        0 138
+  70|-        0 140
+  71|-        0 142
+  72|-        0 144
+  73|-        0 146
+  74|-        0 148
+  75|-        0 150
+  76|-        0 152
+  77|-        0 154
+  78|-        0 156
+  79|-        0 158
+  80|-        0 160
+  81|-        0 162
+  82|-        0 164
+  83|-        0 166
+  84|-        0 168
+  85|-        0 170
+  86|-        0 172
+  87|-        0 174
+  88|-        0 176
+  89|-        0 178
+  90|-        0 180
+  91|-        0 182
+  92|-        0 184
+  93|-        0 186
+  94|-        0 188
+  95|-        0 190
+  96|-        0 192
+  97|-        0 194
+  98|-        0 196
+  99|-        0 198
+ 100|-        0 200
+ 101|-        0 202
+ 102|-        0 204
+ 103|-        0 206
+ 104|-        0 208
+ 105|-        0 210
+ 106|-        0 212
+ 107|-        0 214
+ 108|-        0 216
+ 109|-        0 218
+ 110|-        0 220
+ 111|-        0 222
+ 112|-        0 224
+ 113|-        0 226
+ 114|-        0 228
+ 115|-        0 230
+ 116|-        0 232
+ 117|-        0 234
+ 118|-        0 236
+ 119|-        0 238
+ 120|-        0 240
+ 121|-        0 242
+ 122|-        0 244
+ 123|-        0 246
+ 124|-        0 248
+ 125|-        0 250
+ 126|-        0 252
+ 127|-        0 254
+ 128|-        0 256
+ 129|-        0 258
+ 130|-        0 260
+ 131|-        0 262
+ 132|-        0 264
+ 133|-        0 266
+ 134|-        0 268
+ 135|-        0 270
+ 136|-        0 272
+ 137|-        0 274
+ 138|-        0 276
+ 139|-        0 278
+ 140|-        0 280
+ 141|-        0 282
+ 142|-        0 284
+ 143|-        0 286
+ 144|-        0 288
+ 145|-        0 290
+ 146|-        0 292
+ 147|-        0 294
+ 148|-        0 296
+ 149|-        0 298
 Closing dir: OK
+Total entries - 150 : OK
+Opening dir: OK
+Deleting record 2: OK
+Deleting record 4: OK
+Deleting record 6: OK
+Deleting record 8: OK
+Deleting record 10: OK
+Deleting record 12: OK
+Deleting record 14: OK
+Deleting record 16: OK
+Deleting record 18: OK
+Deleting record 20: OK
+Deleting record 22: OK
+Deleting record 24: OK
+Deleting record 26: OK
+Deleting record 28: OK
+Deleting record 30: OK
+Deleting record 32: OK
+Deleting record 34: OK
+Deleting record 36: OK
+Deleting record 38: OK
+Deleting record 40: OK
+Deleting record 42: OK
+Deleting record 44: OK
+Deleting record 46: OK
+Deleting record 48: OK
+Deleting record 50: OK
+Deleting record 52: OK
+Deleting record 54: OK
+Deleting record 56: OK
+Deleting record 58: OK
+Deleting record 60: OK
+Deleting record 62: OK
+Deleting record 64: OK
+Deleting record 66: OK
+Deleting record 68: OK
+Deleting record 70: OK
+Deleting record 72: OK
+Deleting record 74: OK
+Deleting record 76: OK
+Deleting record 78: OK
+Deleting record 80: OK
+Deleting record 82: OK
+Deleting record 84: OK
+Deleting record 86: OK
+Deleting record 88: OK
+Deleting record 90: OK
+Deleting record 92: OK
+Deleting record 94: OK
+Deleting record 96: OK
+Deleting record 98: OK
+Deleting record 100: OK
+Deleting record 102: OK
+Deleting record 104: OK
+Deleting record 106: OK
+Deleting record 108: OK
+Deleting record 110: OK
+Deleting record 112: OK
+Deleting record 114: OK
+Deleting record 116: OK
+Deleting record 118: OK
+Deleting record 120: OK
+Deleting record 122: OK
+Deleting record 124: OK
+Deleting record 126: OK
+Deleting record 128: OK
+Deleting record 130: OK
+Deleting record 132: OK
+Deleting record 134: OK
+Deleting record 136: OK
+Deleting record 138: OK
+Deleting record 140: OK
+Deleting record 142: OK
+Deleting record 144: OK
+Deleting record 146: OK
+Deleting record 148: OK
+Deleting record 150: OK
+Deleting record 152: OK
+Deleting record 154: OK
+Deleting record 156: OK
+Deleting record 158: OK
+Deleting record 160: OK
+Deleting record 162: OK
+Deleting record 164: OK
+Deleting record 166: OK
+Deleting record 168: OK
+Deleting record 170: OK
+Deleting record 172: OK
+Deleting record 174: OK
+Deleting record 176: OK
+Deleting record 178: OK
+Deleting record 180: OK
+Deleting record 182: OK
+Deleting record 184: OK
+Deleting record 186: OK
+Deleting record 188: OK
+Deleting record 190: OK
+Deleting record 192: OK
+Deleting record 194: OK
+Deleting record 196: OK
+Deleting record 198: OK
+Deleting record 200: OK
+Deleting record 202: OK
+Deleting record 204: OK
+Deleting record 206: OK
+Deleting record 208: OK
+Deleting record 210: OK
+Deleting record 212: OK
+Deleting record 214: OK
+Deleting record 216: OK
+Deleting record 218: OK
+Deleting record 220: OK
+Deleting record 222: OK
+Deleting record 224: OK
+Deleting record 226: OK
+Deleting record 228: OK
+Deleting record 230: OK
+Deleting record 232: OK
+Deleting record 234: OK
+Deleting record 236: OK
+Deleting record 238: OK
+Deleting record 240: OK
+Deleting record 242: OK
+Deleting record 244: OK
+Deleting record 246: OK
+Deleting record 248: OK
+Deleting record 250: OK
+Deleting record 252: OK
+Deleting record 254: OK
+Deleting record 256: OK
+Deleting record 258: OK
+Deleting record 260: OK
+Deleting record 262: OK
+Deleting record 264: OK
+Deleting record 266: OK
+Deleting record 268: OK
+Deleting record 270: OK
+Deleting record 272: OK
+Deleting record 274: OK
+Deleting record 276: OK
+Deleting record 278: OK
+Deleting record 280: OK
+Deleting record 282: OK
+Deleting record 284: OK
+Deleting record 286: OK
+Deleting record 288: OK
+Deleting record 290: OK
+Deleting record 292: OK
+Deleting record 294: OK
+Deleting record 296: OK
+Deleting record 298: OK
+LISTING DIRECTORY:
+   0|-        0 original
+Closing dir: OK
+Total entries - 1 : OK

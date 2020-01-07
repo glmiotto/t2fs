@@ -20,7 +20,7 @@ int main() {
 	printf("Opening dir: %s\n", opendir2() ? "NOT OK" : "OK");
 // 264 entries before double
 // max entries 264 + 16384
-	int dentries = 16648;
+	int dentries = 300;
 	int offset = 0;
 
 	T_RECORD rec[dentries];
@@ -44,15 +44,6 @@ int main() {
 	}
 
 	printf("Total entries - %d : %s\n", mounted->root->total_entries, mounted->root->total_entries == dentries ? "OK" : "NOT OK");
-	// T_RECORD* dummyrec = alloc_record(1);
-	// for (i = 0; i < dentries; i++) {
-	// 	printf("Looking for record %d: %s\n", i+offset, map_index_to_record(i+offset, &dummyrec, dummymap) <= 0 ? "NOT OK" : "OK");
-	// 	printf("\tComparing data\n\t\tName: \"%s\" - %s\n\t\tTypeVal: %d - %s\t\t\n", dummyrec->name, \
-	// 																			 strcmp(rec[i].name, dummyrec->name) == 0 ? "OK" : "NOT OK",\
-	// 																			 dummyrec->TypeVal,\
-	// 																			 rec[i].TypeVal == dummyrec->TypeVal ? "OK" : "NOT OK");
-	// }
-	// free(dummyrec);
 
 	printf("Closing dir: %s\n", closedir2() ? "NOT OK" : "OK");
 	printf("LISTING DIRECTORY:\n");
@@ -78,12 +69,12 @@ int main() {
 		printf("Deleting record %d: %s\n", i+offset, delete_entry(rec[i].name) ? "NOT OK" : "OK");
 		entry_counter--;
 	}
-	// printf("LISTING DIRECTORY:\n");
-	// ii=0;
-	// while ( readdir2(&dentry) == 0 ) {
-	// 		printf ("%4d|%c %8u %s\n", ii,(dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
-	// 		ii++;
-	// }
+	printf("LISTING DIRECTORY:\n");
+	ii=0;
+	while ( readdir2(&dentry) == 0 ) {
+			printf ("%4d|%c %8u %s\n", ii,(dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
+	 		ii++;
+	}
 	printf("Closing dir: %s\n", closedir2() ? "NOT OK" : "OK");
 	printf("Total entries - %d : %s\n", mounted->root->total_entries, mounted->root->total_entries == entry_counter ? "OK" : "NOT OK");
 

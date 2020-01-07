@@ -20,7 +20,7 @@ compile:
 	$(CC) $(CFLAGS) -I ../include/ -L ../lib mount_format_umount_test.c -lt2fs -o ../mount_format_umount_test -Wall -lm
 	$(CC) $(CFLAGS) -I ../include/ -L ../lib openclosedir_test.c -lt2fs -o ../openclosedir_test -Wall -lm
 	$(CC) $(CFLAGS) -I ../include/ -L ../lib recordwrite_test.c -lt2fs -o ../recordwrite_test -Wall -lm
-	$(CC) $(CFLAGS) -I ../include/ -L ../lib write.c -lt2fs -o ../write -Wall -lm
+
 
 check:
 	@var=0;lines=($$(grep -iRl "NOT OK" ./log/));for x in $${lines[@]}; do if [ $$var = 0 ]; then printf "\nERRORS FOUND IN:\n"; fi; var=$$(($$var + 1)); printf "$$x\n"; done; if [ $$var = 0 ]; then printf "\nNO ERRORS WERE FOUND\nALL OK\n"; else printf "\nERRORS WERE FOUND\nCHECK THE LOGS AND CORRECT IT\n"; fi;

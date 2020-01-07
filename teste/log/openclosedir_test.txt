@@ -1,4 +1,4 @@
-********************************
+===============================================
 Superblock info for partition 1
 Id: T2FS
 Version: 32306
@@ -9,6 +9,19 @@ Inode area size (in blocks): 20
 Block size (in sectors): 4
 Disk size of partition (in blocks): 192
 Checksum: 2897432228
+===============================================
+===============================================
+Superblock info for partition 1
+Id: T2FS
+Version: 32306
+Superblock size(1 block, first in partition): 1
+Free Blocks Bitmap Size(in blocks): 1
+Free Inodes Bitmap Size(in blocks): 1
+Inode area size (in blocks): 20
+Block size (in sectors): 4
+Disk size of partition (in blocks): 192
+Checksum: 2897432228
+===============================================
 Opening dir: OK
 Creating file: OK - Handler 0
 Creating file: OK - Handler 1
@@ -38,7 +51,7 @@ File name: hardfile
 File size: 0
 File type: regular
 Closing dir: OK
-********************************
+===============================================
 Superblock info for partition 1
 Id: T2FS
 Version: 32306
@@ -49,6 +62,7 @@ Inode area size (in blocks): 20
 Block size (in sectors): 4
 Disk size of partition (in blocks): 192
 Checksum: 2897432228
+===============================================
 Opening dir: OK
 Opening file "target": OK
 Closing file handler 0: OK
