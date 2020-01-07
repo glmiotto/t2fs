@@ -34,28 +34,8 @@ $(BIN_DIR):
 shell:
 	gcc -o $(EXMP_DIR)/t2shell $(EXMP_DIR)/t2shell.c -L ./ -l$(name) -lm -Wall
 
-test_mbr:
-	gcc -o $(EXMP_DIR)/test_mbr $(EXMP_DIR)/test_mbr.c -L ./ -l$(name) -lm -Wall
-
-tst_map:
-	gcc -o $(EXMP_DIR)/tst_map $(EXMP_DIR)/tst_map.c -L ./ -l$(name) -lm -Wall
-	
-op:
-	make clean
-	make all
-	make tst_op
-
-tst_op:
-	gcc -o $(EXMP_DIR)/tst_op $(EXMP_DIR)/tst_op.c -L ./ -l$(name) -lm -Wall
-
-
-t_mapping:
-	gcc -o $(EXMP_DIR)/t_mapping $(EXMP_DIR)/t_mapping.c -L ./ -l$(name) -lm -Wall
-
-
-
 tar:
-		@cd .. && tar -zcvf 287677_207758_299902.tar.gz $(name)
+		@cd .. && tar -zcvf t2fs2019.tar.gz $(name)
 
 clean:
 	mv $(OBJS) ../
